@@ -1,12 +1,12 @@
 
-# Tabular Foundation Model for Breast Cancer Prognosis using Gene Expression Data
+# TabSurv: Tabular Foundation Model for Breast Cancer Prognosis using Gene Expression Data
 A Python implementation of TabSurv: Foundation Model-Based Survival Analysis method.
 
 
 # Infrastructure used to run experiments:
-* High performance computing (HPC)
-* GPU: NVIDIA GPU (Tesla V100S-PCIE-32 GB).
-* RAM: 128 GB.
+* OS: Ubuntu, version 25.10.
+* CPU: Intel(R) Core(TM) Ultra 7 268V   2.20 GH.
+* RAM: 32 GB.
 
 # Datasets
 
@@ -32,7 +32,7 @@ Due to the large file sizes, the datasets (input) are not included in this repos
 
 * LogisticHazard
 * PMF (Probability Mass Function)
-* DeepHitSingle
+* DeepHS (DeepHitSingle)
 * PCHazard
 * MTLR (Multi-Task Logistic Regression))
 * DeepSurv
@@ -42,35 +42,40 @@ Due to the large file sizes, the datasets (input) are not included in this repos
 # Installation
 **Installation requirements:**
 
-* Python = 3.10
-* cuda = 12.3.2
-* numpy 1.23.5
-* pandas 1.5.3
-* tabpfn 6.3.0
-* pycox 0.3.0
-* scikit-survival 0.25.0
-* torchtuples 0.2.2
-* lifelines 0.24.3
-* scikit-learn 1.5.2
-* scipy 1.15.3
-* matplotlib 3.7.1
-* seaborn 0.12.2
+* Python==3.13
+* huggingface-hub==0.36.0
+* lifelines==0.30.0
+* numpy==2.1.3
+* pandas==2.3.3
+* pycox==0.3.0
+* scikit-learn==1.6.1
+* scikit-survival==0.25.0
+* scipy==1.15.3
+* sklearn-pandas==2.2.0
+* sympy==1.14.0
+* tabpfn==6.3.0
+* tabpfn-extensions==0.2.2
+* tensorboard==2.20.0
+* torch==2.7.1
+* torchmetrics==1.7.4
+* torchtuples==0.2.2
+* torchvision==0.22.1
+* transformers==4.49.0
+
 
 **Detailed Guidelines for Python Environment Setup**
 
 ***1. Create a Python Environment***
 
-Load modules in the High Performance Computing (HPC) and Create a new python environment named tabsurv_env:
+Create a new python environment named tabsurv_env:
      
-    module purge
-    module load python3/3.10.4 cuda/12.3.2
     python -m venv ~/tabsurv_env
     source ~/tabsurv_env/bin/activate
 
 ***2. Install Python Packages:***
      Install essential Python packages using pip: (bash)
      
-    pip install numpy pandas scikit-learn scipy matplotlib seaborn tabpfn pycox scikit-survival torchtuples lifelines
+    pip install -r requirements.txt
 
 
 
@@ -78,14 +83,26 @@ Load modules in the High Performance Computing (HPC) and Create a new python env
 # Reproducing the Paper Results:
 
 
-**1. Run 7 models for survival analysis for 12 datasets.**
+**1. Survival Prediction for Prognosis. **
+
+
+*** Run 7 models for survival analysis for 12 datasets.***
 
     python baselines.py
 
-**2. Run the TabSurv model for 12 datasets**
+*** Run the TabSurv model for 12 datasets ***
+
+    python tabsurv.py
+
+*** Generate the evaluation results in the paper**
+
+    python evaluations.py
+
+    
+**2. Treatment Recommendation Evaluation **
 
     python tabsurv.py
     
-**3. Generate the evaluation results in the paper**
+*** Generate the evaluation results in the paper***
 
     python evaluations.py

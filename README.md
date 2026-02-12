@@ -42,7 +42,7 @@ Due to the large file sizes (> 25MB), the big datasets (METABRIC, TCGA500, GEO, 
 # Installation
 **Installation requirements:**
 
-* Python==3.13
+* python==3.13
 * huggingface-hub==0.36.0
 * lifelines==0.30.0
 * numpy==2.1.3

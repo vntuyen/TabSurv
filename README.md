@@ -101,6 +101,6 @@ Create a new python environment named tabsurv_env:
 ***2. Treatment Recommendation Evaluation***
 
     python tabsurv_REC.py
-    python baseline_REC.py
+    python baselines_REC.py
     
 

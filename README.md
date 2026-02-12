@@ -82,27 +82,25 @@ Create a new python environment named tabsurv_env:
 
 # Reproducing the Paper Results:
 
+***1. Survival Prediction for Prognosis.***
 
-**1. Survival Prediction for Prognosis. **
 
+ Run 7 models for survival analysis for 12 datasets.
 
-*** Run 7 models for survival analysis for 12 datasets.***
+    python baselines_OOD.py
 
-    python baselines.py
+ Run the TabSurv model for 12 datasets 
 
-*** Run the TabSurv model for 12 datasets ***
+    python tabsurv_OOD.py
 
-    python tabsurv.py
-
-*** Generate the evaluation results in the paper**
+ Generate the evaluation results in the paper
 
     python evaluations.py
 
     
-**2. Treatment Recommendation Evaluation **
+***2. Treatment Recommendation Evaluation***
 
-    python tabsurv.py
+    python tabsurv_REC.py
+    python baseline_REC.py
     
-*** Generate the evaluation results in the paper***
 
-    python evaluations.py

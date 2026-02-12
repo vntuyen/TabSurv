@@ -26,7 +26,7 @@ A Python implementation of TabSurv: Foundation Model-Based Survival Analysis met
 | UPP       | 235         |  54      | 23.08%    | 0.08     | 12.75    |
 
 
-Due to the large file sizes, the datasets (input) are not included in this repository. They are available upon request.
+Due to the large file sizes (> 25MB), the big datasets (METABRIC, TCGA500, GEO, GSE6532, NKI, UPP, UK, MAINZ, TRANSBIG) are not included in this repository. They are available upon request.
 
 # Baselines: 7 methods
 

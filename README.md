@@ -33,7 +33,7 @@ For the survival experiments, **METABRIC** is the source cohort for the RFS scen
 
 ## Methods
 
-The final survival experiments include three TabSurv configurations (**TabSurv_M**, **TabSurv_P**, and **TabSurv_A**) and eight baselines:
+The final survival experiments include three TabSurv variants (**TabSurv_M**, **TabSurv_P**, and **TabSurv_A**) and eight baselines:
 
 - DeepHitSingle (DeepHS)
 - DeepSurv

@@ -4,103 +4,111 @@ A Python implementation of TabSurv: Foundation Model-Based Survival Analysis met
 
 
 # Infrastructure used to run experiments:
-* OS: Ubuntu, version 25.10.
-* CPU: Intel(R) Core(TM) Ultra 7 268V   2.20 GH.
-* RAM: 32 GB.
+* OS: MacOS, version 26.6.2.
+* CPU: Apple M5.
+* RAM: 24 GB.
 
-# Datasets
+## Datasets
 
-| Dataset   | Sample Size | # Events | Event (%) | Min Time | Max Time |
-|-----------|-------------|----------|-----------|----------|----------|
-| METABRIC  | 1,980       |  647     | 32.89%    | 0.00     | 29.60    |
-| TCGA500   | 500         |  45      | 9.00%     | 0.0027   | 17.91    |
-| GEO       | 736         |  349     | 47.40%    | 0.00     | 18.52    |
-| GSE6532   | 401         |  139     | 34.66%    | 0.022    | 16.85    |
-| GSE19783  | 100         |  43      | 43.00%    | 0.69     | 10.62    |
-| HEL       | 115         |  25      | 21.74%    | 0.00     | 5.00     |
-| UNT       | 133         |  28      | 21.05%    | 0.17     | 14.53    |
-| NKI       | 320         |  109     | 34.17%    | 0.02     | 18.35    |
-| TRANSBIG  | 198         |  62      | 31.31%    | 0.34     | 29.60    |
-| UK        | 207         |  77      | 37.20%    | 0.39     | 10.00    |
-| MAINZ     | 200         |  46      | 23.00%    | 0.08     | 19.72    |
-| UPP       | 235         |  54      | 23.08%    | 0.08     | 12.75    |
+TabSurv is evaluated on 12 breast cancer cohorts with recurrence-free survival (**RFS**) or distant metastasis-free survival (**DMFS**) endpoints.
 
+| Dataset | Sample size | Events | Event (%) | Min time | Max time | End point |
+|---|---:|---:|---:|---:|---:|:---:|
+| METABRIC | 1,980 | 647 | 32.68 | 0.00 | 29.60 | RFS |
+| GEO | 736 | 349 | 47.40 | 0.00 | 18.52 | RFS |
+| GSE6532 | 401 | 139 | 34.66 | 0.022 | 16.85 | RFS |
+| GSE19783 | 100 | 43 | 43.00 | 0.69 | 10.62 | RFS |
+| TCGA500 | 500 | 45 | 9.00 | 0.00 | 17.91 | RFS |
+| UK | 207 | 77 | 37.20 | 0.39 | 10.00 | RFS |
+| UPP | 235 | 54 | 23.08 | 0.08 | 12.75 | RFS |
+| NKI | 320 | 109 | 34.17 | 0.02 | 18.35 | DMFS |
+| MAINZ | 200 | 46 | 23.00 | 0.08 | 19.72 | DMFS |
+| HEL | 115 | 25 | 21.74 | 0.00 | 5.00 | DMFS |
+| UNT | 133 | 28 | 21.05 | 0.17 | 14.53 | DMFS |
+| TRANSBIG | 198 | 62 | 31.31 | 0.34 | 29.60 | DMFS |
 
-Due to the large file sizes (> 25MB), the big datasets (METABRIC, TCGA500, GEO, GSE6532, NKI, UPP, UK, MAINZ, TRANSBIG) are not included in this repository. They are available upon request.
+Due to GitHub file-size limits, the larger datasets (>25MB) are not distributed in this repository. They are available upon request.
 
-# Baselines: 7 methods
+For the survival experiments, **METABRIC** is the source cohort for the RFS scenario, with TCGA500, GEO, GSE6532, GSE19783, UK, and UPP used as external cohorts. **NKI** is the source cohort for the DMFS scenario, with HEL, UNT, TRANSBIG, and MAINZ used as external cohorts.
 
-* LogisticHazard
-* PMF (Probability Mass Function)
-* DeepHS (DeepHitSingle)
-* PCHazard
-* MTLR (Multi-Task Logistic Regression))
-* DeepSurv
-* RSF (Random Survival Forest)
+## Methods
 
+The final survival experiments include three TabSurv configurations (**TabSurv_M**, **TabSurv_P**, and **TabSurv_A**) and eight baselines:
 
-# Installation
-**Installation requirements:**
+- DeepHitSingle (DeepHS)
+- DeepSurv
+- Elastic-Net Cox (ENCox)
+- LogisticHazard (LH)
+- Multi-Task Logistic Regression (MTLR)
+- Piecewise Constant Hazard (PCHazard)
+- Probability Mass Function (PMF)
+- Random Survival Forest (RSF)
 
-* python==3.13
-* huggingface-hub==0.36.0
-* lifelines==0.30.0
-* numpy==2.1.3
-* pandas==2.3.3
-* pycox==0.3.0
-* scikit-learn==1.6.1
-* scikit-survival==0.25.0
-* scipy==1.15.3
-* sklearn-pandas==2.2.0
-* sympy==1.14.0
-* tabpfn==6.3.0
-* tabpfn-extensions==0.2.2
-* tensorboard==2.20.0
-* torch==2.7.1
-* torchmetrics==1.7.4
-* torchtuples==0.2.2
-* torchvision==0.22.1
-* transformers==4.49.0
+**TabSurv_M** is the proposed method used for paired statistical comparisons with the survival baselines.
 
+Treatment-recommendation experiments additionally include **SurvITE** and **BITES** as causal-survival baselines.
 
-**Detailed Guidelines for Python Environment Setup**
+## Installation
 
-***1. Create a Python Environment***
+The experiments were implemented in Python. Create a virtual environment and install the required packages:
 
-Create a new python environment named tabsurv_env:
-     
-    python -m venv ~/tabsurv_env
-    source ~/tabsurv_env/bin/activate
+```bash
+python -m venv tabsurv_env
+source tabsurv_env/bin/activate
+pip install -r requirements.txt
+```
 
-***2. Install Python Packages:***
-     Install essential Python packages using pip: (bash)
-     
-    pip install -r requirements.txt
+The exact package versions used in the experiments are provided in `requirements.txt`.
 
+TabSurv uses the TabPFN v2.5 regressor checkpoint. If a local checkpoint is available, specify it with:
 
+```bash
+export TABPFN_CKPT_PATH=/path/to/tabpfn-v2.5-regressor-v2.5_default.ckpt
+```
 
+Otherwise, on an internet-connected machine, TabPFN can resolve/download the checkpoint through its cache.
 
-# Reproducing the Paper Results:
+## Reproducing the Experiments
 
-***1. Survival Prediction for Prognosis.***
+`run_all.py` is the main entry point for the experimental pipeline.
 
+### Survival prediction
 
- Run 7 models for survival analysis for 12 datasets.
+Run the final RFS and DMFS experiments under both InD and OOD settings:
 
-    python baselines_OOD.py
+```bash
+python run_all.py --methods final-report --scenario both --setting both
+```
 
- Run the TabSurv model for 12 datasets 
+This runs the three TabSurv configurations and all eight survival baselines, followed by evaluation and paired statistical comparisons where applicable.
 
-    python tabsurv_OOD.py
+To evaluate existing prediction files without retraining:
 
- Generate the evaluation results in the paper
+```bash
+python run_all.py --methods final-report --scenario both --setting both --evaluation-only
+```
 
-    python evaluations.py
+### Treatment recommendation
 
-    
-***2. Treatment Recommendation Evaluation***
+Run TabSurv and all treatment-recommendation baselines for both gene-set scenarios:
 
-    python tabsurv_REC.py
-    python baselines_REC.py
+```bash
+python run_all.py --methods all-rec --rec-scenario both
+```
+
+The default treatment-recommendation experiments use five random seeds (`40, 41, 42, 43, 44`) and a 30% test split.
+
+### Run all experiments
+
+```bash
+python run_all.py --methods everything --scenario both --setting both --rec-scenario both
+```
+
+Results and prediction files are written to the `output/` directory.
+
+## Reproducibility
+
+Shared experimental settings, dataset scenarios, random seeds, model lists, and output paths are defined in `experiment_config.py`. The master script `run_all.py` provides a common interface for model execution, evaluation, and statistical comparison.
+
     
 

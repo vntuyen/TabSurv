@@ -237,6 +237,81 @@ def survival_curves(data, time_col, event_col,
 
 
 
+### KM curve for 10 years
+# def survival_curves(data, time_col, event_col,
+#                     method_name, output_plot_path=None):
+#
+#     # Drop rows with missing values
+#     data = data.dropna(subset=[time_col, event_col])
+#
+#     followed = data[data["FOLLOW_REC"] == 1]
+#     not_followed = data[data["FOLLOW_REC"] == 0]
+#
+#     # Check if groups are empty
+#     if followed.empty or not_followed.empty:
+#         print(f" One group is empty (Followed={len(followed)}, NotFollowed={len(not_followed)}). Skipping KM plot.")
+#         return None
+#
+#     # ============================
+#     # 1) Fit Kaplan-Meier (full data)
+#     # ============================
+#     km_followed = KaplanMeierFitter().fit(
+#         followed[time_col], followed[event_col], label="Followed"
+#     )
+#     km_not_followed = KaplanMeierFitter().fit(
+#         not_followed[time_col], not_followed[event_col], label="Not Followed"
+#     )
+#
+#     # ============================
+#     # 2) Restrict to time ≤ 10 for p-value
+#     # ============================
+#     followed_10 = followed[followed[time_col] <= 10]
+#     not_followed_10 = not_followed[not_followed[time_col] <= 10]
+#
+#     # If filtered groups become empty → skip
+#     if followed_10.empty or not_followed_10.empty:
+#         print(" After restricting to time ≤ 10, one group is empty. Cannot compute p-value.")
+#         p_value = float('nan')
+#     else:
+#         logrank_res = logrank_test(
+#             followed_10[time_col], not_followed_10[time_col],
+#             event_observed_A=followed_10[event_col],
+#             event_observed_B=not_followed_10[event_col]
+#         )
+#         p_value = logrank_res.p_value
+#
+#     # ============================
+#     # 3) Plot KM curves (full data)
+#     # ============================
+#     plt.figure(figsize=(10, 6))
+#     km_followed.plot(ci_show=True, linewidth=2)
+#     km_not_followed.plot(ci_show=True, linewidth=2)
+#
+#     # Show only 0–10 years on x-axis
+#     plt.xlim(0, 10.5)
+#
+#     plt.title(f"{method_name} (p = {p_value:.4f})", fontsize=32)
+#     plt.xlabel("Time (Years)", fontsize=20)
+#     plt.ylabel("Survival Probability", fontsize=18)
+#     plt.legend(fontsize=16)
+#     plt.grid()
+#
+#     # Save or show plot
+#     if output_plot_path:
+#         plt.savefig(output_plot_path, dpi=300, bbox_inches="tight")tight
+#         plt.close()
+#         print(f"KM plot saved to {output_plot_path}")
+#     else:
+#         plt.show()
+#
+#     print(f"P-value (≤10 years): {method_name}: {p_value:.4f}")
+#
+#     return p_value
+
+
+
+
+
 
 def manual_c_index_risk_score(df, time_col='real_survival', event_col='event', prediction_col='risk_score'):
     """

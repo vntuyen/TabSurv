@@ -360,7 +360,7 @@ def _ensure_df_and_cols_gene_selection(df_or_name, feature, time_col=None, event
     Returns (df, time_col, event_col).
     """
     if isinstance(df_or_name, str):
-        df_loaded, _, _, dcol, ecol, feature_names = load_datafile_gene(df_or_name, feature)
+        df_loaded, _, _, dcol, ecol = load_datafile_gene_selection(df_or_name, feature)
         return df_loaded.copy(), (time_col or dcol), (event_col or ecol)
     elif isinstance(df_or_name, pd.DataFrame):
         if time_col is None or event_col is None:
@@ -397,12 +397,18 @@ def load_tab_survival_dataset_censoring(
 
     # --- Stratified split if possible ---
     stratify_col = df[event_col] if df[event_col].nunique() > 1 else None
-    train_ids, test_ids = train_test_split(
-        df["patient_id"],
-        test_size=test_size,
-        random_state=random_state,
-        stratify=stratify_col,
-    )
+    if test_size == 0:
+        # keep everything as train, no held-out set
+        train_ids = df["patient_id"].copy()
+        test_ids = df["patient_id"].iloc[0:0]  # empty Series, same dtype/name
+    else:
+        train_ids, test_ids = train_test_split(
+            df["patient_id"],
+            test_size=test_size,
+            random_state=random_state,
+            stratify=stratify_col,
+        )
+
 
     # full train and test (no filtering)
     train_full = df[df["patient_id"].isin(train_ids)].copy()
@@ -434,6 +440,60 @@ def load_tab_survival_dataset_censoring(
         X_test, y_test, y_test_event
     )
 
+def load_full_dataset_censoring(
+    df_or_name,
+    time_col: str,
+    event_col: str,
+    random_state: int,
+):
+    """
+    Prepare TabSurv dataset:
+      1. Split into train_full and test (stratified)
+      2. Split train_full into:
+            - train_dead   (event == 1)
+            - train_alive  (event == 0)
+      3. Return:
+            X_test, y_test, y_test_event,
+            X_train_dead, y_train_dead,
+            X_train_alive, y_train_alive
+    """
+
+    # --- Load dataframe and verify column names ---
+    df, time_col, event_col = _ensure_df_and_cols(df_or_name, time_col, event_col)
+
+    # --- Basic cleaning ---
+    df = df.dropna(subset=[time_col, event_col]).reset_index(drop=True)
+    df["patient_id"] = np.arange(len(df))
+
+    # --- Stratified split if possible ---
+    stratify_col = df[event_col] if df[event_col].nunique() > 1 else None
+    # keep everything as train, no held-out set
+    train_ids = df["patient_id"].copy()
+
+    # full train and test (no filtering)
+    train_full = df[df["patient_id"].isin(train_ids)].copy()
+
+    # --- Split train_full into train_dead and train_alive ---
+    train_dead  = train_full[train_full[event_col] == 1].copy()
+    train_alive = train_full[train_full[event_col] == 0].copy()
+
+    # --- Prepare X and y for each set ---
+    drop_cols = [time_col, event_col, "patient_id"]
+
+
+
+    # train_dead
+    X_train_dead  = train_dead.drop(columns=drop_cols, errors="ignore")
+    y_train_dead  = train_dead[time_col].astype(float)
+
+    # train_alive
+    X_train_alive = train_alive.drop(columns=drop_cols, errors="ignore")
+    y_train_alive = train_alive[time_col].astype(float)
+
+    return (
+        X_train_dead, y_train_dead,
+        X_train_alive, y_train_alive,
+    )
 
 def load_tab_survival_dataset(
     df_or_name,
@@ -516,7 +576,7 @@ def load_tab_survival_dataset_feature_selection(
         y_test:  Times for testing (may be censored).
         y_test_event: Event indicators for testing.
     """
-    df, time_col, event_col = _ensure_df_and_cols(df_or_name, feature, time_col, event_col)
+    df, time_col, event_col = _ensure_df_and_cols_gene_selection(df_or_name, feature, time_col, event_col)
 
     # basic cleaning
     df = df.dropna(subset=[time_col, event_col]).reset_index(drop=True)

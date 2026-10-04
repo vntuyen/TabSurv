@@ -15,11 +15,31 @@ from sklearn_pandas import DataFrameMapper
 
 from datasets import load_datafile_gene, get_target, preprocess_dataset_test
 from experiment_config import (
-    BASELINE_MODELS, SEEDS, TEST_SIZE, compact_prediction_frame,
+    BASELINE_MODELS, SAVE_SURVIVAL_MATRICES, SEEDS, TEST_SIZE, compact_prediction_frame,
     ensure_output_dirs, selected_scenarios, selected_settings,
 )
 from models import get_model, model_dict, fit_coxnet_survival
 from utils import get_labtrans, evaluate_model_sksurv
+from survival_metrics import save_survival_matrix, survival_matrix_from_model, survival_matrix_path
+
+
+def _save_baseline_survival(model, x, times, events, model_name, prediction_dir,
+                            dataset, seed, patient_ids=None, train=None):
+    """Store S(t|x) on the common grid for the Revision-2 calibration metrics.
+
+    Failures are reported but never interrupt the C-index pipeline.
+    """
+    if not SAVE_SURVIVAL_MATRICES:
+        return
+    try:
+        S = survival_matrix_from_model(model, x, model_name, train=train)
+        save_survival_matrix(
+            survival_matrix_path(prediction_dir, dataset, model_name, seed),
+            S, times, events, patient_ids=patient_ids,
+        )
+    except Exception as exc:
+        print(f"[WARN] survival function not saved for {dataset}/{model_name}/seed={seed}: "
+              f"{type(exc).__name__}: {exc}")
 
 L1_RATIOS = (0.5,)
 CV_FOLDS = 3
@@ -200,6 +220,9 @@ def run_scenario(scenario_name, models_to_run=None, setting="both"):
                     val_data=(x_val, y_val),
                 )
 
+            # Training data for ENCox's Breslow baseline hazard (calibration only).
+            encox_train = (x_train, times_train, events_train) if model_name == "ENCox" else None
+
             if run_ind:
                 # -------------------------------------------------------------
                 # In-distribution evaluation: held-out split of the training
@@ -233,6 +256,11 @@ def run_scenario(scenario_name, models_to_run=None, setting="both"):
                         f"{training_dataset}_{model_name}_seed{seed}_predict.csv"
                     )
                     df_compact_in.to_csv(pred_path_in, index=False)
+                    _save_baseline_survival(
+                        model, x_test, times_test_in, events_test_in, model_name,
+                        prediction_dir, training_dataset, seed, patient_ids=patient_ids_in,
+                        train=encox_train,
+                    )
                     print(
                         f"{training_dataset} [InD]: C-index={c_index_in:.4f} "
                         f"-> {pred_path_in}"
@@ -294,6 +322,10 @@ def run_scenario(scenario_name, models_to_run=None, setting="both"):
                         )
                         pred_path = prediction_dir / f"{dataset_name}_{model_name}_seed{seed}_predict.csv"
                         df_compact.to_csv(pred_path, index=False)
+                        _save_baseline_survival(
+                            model, X_test_out, times_test, events_test, model_name,
+                            prediction_dir, dataset_name, seed, train=encox_train,
+                        )
                         print(f"{dataset_name}: C-index={c_index:.4f} -> {pred_path}")
 
                         all_results.append({

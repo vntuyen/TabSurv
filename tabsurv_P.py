@@ -17,7 +17,6 @@ OOD
 Thus adding InD reporting does NOT reduce the OOD training cohort. The OOD
 algorithm remains the full-source TabSurv_P method.
 
-Memory safety
 -------------
 The memory-safe behaviour is retained:
   * --device auto uses CPU on macOS, CUDA elsewhere when available

@@ -5,11 +5,12 @@ For the final survival report, use:
 
     python run_all.py --methods final-report --scenario both
 
-This runs TabSurv_M, TabSurv_P, TabSurv_A plus all eight survival-prediction baselines. InD and OOD
+This runs TabSurv_M, TabSurv_P, TabSurv_A plus all  survival-prediction baselines. InD and OOD
 both report all three TabSurv variants plus the baselines; Stability_CI remains
 OOD-only. It then runs paired Wilcoxon comparisons for TabSurv_M versus the
 baselines for RFS-InD, RFS-OOD, DMFS-InD and DMFS-OOD
-(and the secondary combined 10-cohort OOD analysis).
+
+
 """
 
 import argparse
@@ -147,7 +148,9 @@ def parse_args():
 
     # Reporting/control -------------------------------------------------------
     p.add_argument("--skip-evaluation", action="store_true", help="Skip evaluations.py.")
-    p.add_argument("--skip-statistics", action="store_true", help="Skip paired Wilcoxon comparisons.")
+    p.add_argument("--skip-statistics", action="store_true", help="Skip the statistical comparison (Table 4).")
+    p.add_argument("--skip-calibration", action="store_true", help="Skip calibration_evaluation.py.")
+    p.add_argument("--n-boot", type=int, default=2000, help="Patient-level bootstrap resamples for Table 4.")
     p.add_argument(
         "--evaluation-only",
         action="store_true",
@@ -279,6 +282,26 @@ def main():
     elif not args.statistics_only and not args.skip_evaluation and not ood_methods:
         print("\nNo survival/OOD methods selected; evaluations.py is not needed.")
 
+    # Calibration / accuracy of predicted survival (Revision 2) -----------------
+    if not args.statistics_only and not args.skip_calibration and ood_methods:
+        cal_models = []
+        for method in ood_methods:
+            if method == PROPOSED_METHOD:
+                cal_models.append(method)
+            elif method == "baselines":
+                cal_models.extend(args.baseline_models)
+        if cal_models:
+            cmd = [
+                sys.executable, str(SCRIPT_DIR / "calibration_evaluation.py"),
+                "--scenario", args.scenario, "--setting", args.setting,
+                "--models", *cal_models,
+            ]
+            rc = _run(cmd, dry_run=args.dry_run)
+            if rc != 0:
+                failures.append(("calibration_evaluation", rc))
+                if not args.continue_on_error:
+                    return rc
+
     # Statistical comparison ------------------------------------------------
     # Automatically run when the selected survival experiment contains both
     # TabSurv_M and baselines. statistics-only also uses the requested baseline
@@ -292,6 +315,7 @@ def main():
             "--analysis", "all" if args.scenario == "both" else args.scenario,
             "--setting", args.setting,
             "--baselines", *args.baseline_models,
+            "--n-boot", str(args.n_boot),
         ]
         if args.strict_statistics:
             cmd += ["--strict-seeds"]

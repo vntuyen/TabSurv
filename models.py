@@ -3,27 +3,6 @@ models.py
 
 Model registry and construction helpers shared across the TabSurv scripts.
 
-Two families of survival model live here:
-
-1. pycox neural-net models + RSF (DeepHitSingle, DeepSurv, LogisticHazard,
-   MTLR, PCHazard, PMF, RSF): built via get_model(), which just constructs
-   an untrained model object from architecture parameters (in_features,
-   out_features, labtrans). Actual training happens in the calling script
-   via model.fit(...).
-
-2. ElasticNetCox (CoxnetSurvivalAnalysis, scikit-survival): this does NOT
-   fit get_model()'s "build an empty model from architecture params"
-   pattern, because selecting its elastic-net mixing parameter and penalty
-   strength requires the actual training data (nested cross-validation on
-   the training split only -- see fit_coxnet_survival's docstring below).
-   So unlike the other 7 models, ElasticNetCox is both constructed AND
-   fitted by a single call to fit_coxnet_survival(X_train, durations_train,
-   events_train, ...), which returns an already-trained model plus the
-   selected hyperparameters. Use coxnet_risk_score(model, X) to score it
-   afterwards -- though in practice evaluate_model_sksurv() in utils.py
-   already knows to call ElasticNetCox's .predict() directly (like RSF),
-   so most calling code doesn't need coxnet_risk_score() explicitly.
-
 
 """
 
@@ -74,10 +53,6 @@ def get_model(model_name, in_features, out_features=None, labtrans=None):
 # ElasticNetCox (CoxnetSurvivalAnalysis, scikit-survival)
 # =====================================================
 #
-
-
-
-
 
 def to_structured_y(durations, events):
     """Build the (event, time) structured array scikit-survival expects."""

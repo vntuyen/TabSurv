@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """TabSurv treatment-recommendation experiment using the shared master config.
 
-This is the master-runner-compatible form of the existing TabSurv REC
-sensitivity experiment. The treatment-recommendation algorithm is unchanged:
 RSF provides a continuous risk-score target, TabPFN/TabSurv learns that target,
 and counterfactual treatment plans are evaluated on the held-out test set.
 
@@ -51,10 +49,8 @@ from utils import (
 METHOD_NAME = "TabSurv"
 RISK_BASE_MODEL = "RSF"
 
-
 def _as_float(value):
     return float(value) if value is not None and np.isfinite(value) else np.nan
-
 
 def run_one_seed(
     dataset_name: str,
@@ -216,7 +212,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--scenario",
-        choices=["72genes", "35genes","30genes", "allgenes", "both"],
+        choices=["72genes", "allgenes", "both"],
         default="both",
         help="REC gene-set scenario. Default: both.",
     )

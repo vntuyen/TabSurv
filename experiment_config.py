@@ -18,7 +18,7 @@ import pandas as pd
 # checkpoint still fails immediately there instead of attempting the network.
 TABPFN_CKPT_PATH = Path(os.environ.get(
     "TABPFN_CKPT_PATH",
-    "/scratch/sq95/tv9849/tabsurv/tabpfn/tabpfn-v2.5-regressor-v2.5_default.ckpt",
+    "/scratch/.../tabsurv/tabpfn/tabpfn-v2.5-regressor-v2.5_default.ckpt",
 )).expanduser()
 TABPFN_DEVICE = os.environ.get("TABPFN_DEVICE", "auto")
 TABPFN_NETWORK_MODEL = os.environ.get(
@@ -109,6 +109,15 @@ OUTPUT_ROOT = Path("./output")
 # -----------------------------------------------------------------------------
 TEST_SIZE = 0.5
 
+# Accuracy and calibration of predicted survival functions.
+# Horizons (years) are prespecified; 3 and 5 years are standard breast-cancer
+# prognostic horizons and the main manuscript table reports 5 years.
+CALIBRATION_HORIZONS = [3.0, 5.0, 10.0]
+MAIN_CALIBRATION_HORIZON = 5.0
+IBS_MAX_TIME = 10.0          # IBS integrated up to min(10 y, 80th pct of cohort follow-up)
+SURV_GRID = np.round(np.arange(0.2, 20.0 + 1e-9, 0.2), 4)   # common grid for stored S(t|x)
+SAVE_SURVIVAL_MATRICES = True
+
 # Training feature matrices are not needed by evaluations and can be very large.
 # Leave False for normal experiments. Set True only for debugging/auditing.
 SAVE_TRAINING_ARTIFACTS = False
@@ -151,8 +160,6 @@ OOD_REPORT_MODELS = FINAL_REPORT_MODELS.copy()
 # Two REC gene-set scenarios. Both TabSurv_REC and baselines_REC can run either
 # scenario (or both) using the same split seeds and test fraction.
 REC_72GENES_DATASET = ["METABRIC_72genes"]
-REC_35genes_DATASET = ["METABRIC_35genes"]
-REC_30GENES_DATASET = ["METABRIC_30genes"]
 REC_ALLGENES_DATASET = ["METABRIC_allgenes"]
 REC_TEST_SIZE = 0.3
 REC_MODEL_RANDOM_STATE = 42
@@ -189,22 +196,6 @@ REC_SCENARIOS = {
             "prediction_dir": BASELINES_REC_PREDICTION_DIR / "72genes",
             "results_dir": BASELINES_REC_RESULTS_DIR / "72genes",
             "plots_dir": BASELINES_REC_PLOTS_DIR / "72genes" / "baselines_REC",
-        },
-    },
-    "35genes": {
-        "datasets": REC_35genes_DATASET,
-        "TabSurv_REC": {
-            "prediction_dir": REC_PREDICTION_DIR / "35genes" / "TabSurv_REC",
-            "results_dir": REC_RESULTS_DIR / "35genes",
-            "plots_dir": REC_PLOTS_DIR / "35genes" / "TabSurv_REC",
-        },
-    },
-    "30genes": {
-        "datasets": REC_30GENES_DATASET,
-        "TabSurv_REC": {
-            "prediction_dir": REC_PREDICTION_DIR / "30genes" / "TabSurv_REC",
-            "results_dir": REC_RESULTS_DIR / "30genes",
-            "plots_dir": REC_PLOTS_DIR / "30genes" / "TabSurv_REC",
         },
     },
     "allgenes": {

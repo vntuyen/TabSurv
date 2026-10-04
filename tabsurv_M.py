@@ -20,6 +20,7 @@ from datasets import (
     load_tab_survival_dataset_test,
 )
 from experiment_config import (
+    SAVE_SURVIVAL_MATRICES,
     SAVE_TRAINING_ARTIFACTS,
     SEEDS,
     TEST_SIZE,
@@ -30,6 +31,11 @@ from experiment_config import (
     tabpfn_regressor_kwargs,
 )
 from utils import manual_c_index_expected_time
+from survival_metrics import (
+    save_survival_matrix,
+    survival_matrix_path,
+    tabpfn_predict_mean_and_survival,
+)
 
 MODEL_NAME = "TabSurv_M"
 N_IMPUTATIONS = 5
@@ -226,10 +232,10 @@ def run_scenario(scenario_name, setting="both"):
             # ------------------------------------------------------------------
             try:
                 X_test_in_np = _to_numpy_float32(X_test_in)
-                preds_in_by_model = np.stack(
-                    [mdl.predict(X_test_in_np) for mdl in stage2_models], axis=0
-                )
-                y_pred_in = preds_in_by_model.mean(axis=0)
+                # One forward pass per Stage-2 model gives the predictive mean
+                # (pooled exactly as before, so the C-index is unchanged) and the
+                # pooled S(t|x) used for the Revision-2 calibration metrics.
+                y_pred_in, surv_in = tabpfn_predict_mean_and_survival(stage2_models, X_test_in_np)
 
                 # Preserve the original dataframe row index in the seed-specific
                 # patient ID. This allows a downstream check that TabSurv_M and
@@ -252,6 +258,11 @@ def run_scenario(scenario_name, setting="both"):
                 )
                 pred_path_in = prediction_dir / f"{training_dataset}_{MODEL_NAME}_seed{seed}_predict.csv"
                 df_pred_in.to_csv(pred_path_in, index=False)
+                if SAVE_SURVIVAL_MATRICES:
+                    save_survival_matrix(
+                        survival_matrix_path(prediction_dir, training_dataset, MODEL_NAME, seed),
+                        surv_in, y_test_time_in, y_test_event_in, patient_ids=patient_ids_in,
+                    )
                 print(f"{training_dataset} [InD]: C-index={cidx_in:.4f} -> {pred_path_in}")
 
                 all_results.append({
@@ -284,8 +295,7 @@ def run_scenario(scenario_name, setting="both"):
                 try:
                     X_test, y_time, y_event = load_tab_survival_dataset_test(dataset_name)
                     X_np = _to_numpy_float32(X_test)
-                    preds = np.stack([mdl.predict(X_np) for mdl in stage2_models], axis=0)
-                    y_pred = preds.mean(axis=0)
+                    y_pred, surv = tabpfn_predict_mean_and_survival(stage2_models, X_np)
 
                     df_pred = compact_prediction_frame(y_time, y_event, y_pred, "predicted")
                     c_index = manual_c_index_expected_time(
@@ -293,6 +303,11 @@ def run_scenario(scenario_name, setting="both"):
                     )
                     pred_path = prediction_dir / f"{dataset_name}_{MODEL_NAME}_seed{seed}_predict.csv"
                     df_pred.to_csv(pred_path, index=False)
+                    if SAVE_SURVIVAL_MATRICES:
+                        save_survival_matrix(
+                            survival_matrix_path(prediction_dir, dataset_name, MODEL_NAME, seed),
+                            surv, y_time, y_event,
+                        )
                     print(f"{dataset_name} [OOD]: C-index={c_index:.4f} -> {pred_path}")
 
                     all_results.append({

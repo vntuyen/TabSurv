@@ -5,8 +5,7 @@ All methods use the same outer split seeds and held-out test patients. SurvITE
 and BITES are Python causal-survival / heterogeneous treatment-effect baselines.
 Treatment coding is fixed to 1=CHEMOTHERAPY and 0=RADIO_THERAPY.
 
-SurvITE and BITES are implemented directly in this script; no separate causal-model
-Python modules are required. BITES still requires the external geomloss package.
+
 """
 from __future__ import annotations
 

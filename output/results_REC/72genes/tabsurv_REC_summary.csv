@@ -1,0 +1,2 @@
+rec_scenario,dataset,model,n_seeds,mean_C-index,std_C-index,C-index (mean ± std),mean_delta_mean_survival,std_delta_mean_survival,Delta mean survival (mean ± std)
+72genes,METABRIC_72genes,TabSurv,5,0.5562036549238996,0.033448208507141315,0.5562 ± 0.0334,1.261284264252002,1.9916479160638738,1.261 ± 1.992

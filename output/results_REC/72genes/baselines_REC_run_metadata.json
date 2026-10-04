@@ -1,0 +1,34 @@
+{
+  "method": "baselines_REC",
+  "rec_scenario": "72genes",
+  "datasets": [
+    "METABRIC_72genes"
+  ],
+  "models": [
+    "DeepHS",
+    "DeepSurv",
+    "ENCox",
+    "LH",
+    "MTLR",
+    "PCHazard",
+    "PMF",
+    "RSF",
+    "SurvITE",
+    "BITES"
+  ],
+  "seeds": [
+    40,
+    41,
+    42,
+    43,
+    44
+  ],
+  "test_size": 0.3,
+  "model_random_state": 42,
+  "full_reseed": false,
+  "treatment_1": "CHEMOTHERAPY",
+  "treatment_0": "RADIO_THERAPY",
+  "causal_RMST_horizon": 20.0,
+  "SurvITE_epochs": 3000,
+  "SurvITE_beta": 0.001
+}

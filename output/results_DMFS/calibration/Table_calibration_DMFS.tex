@@ -1,0 +1,34 @@
+\begin{table}[t]
+\centering
+\caption{Accuracy and calibration of predicted survival functions, DMFS endpoint. IBS: integrated Brier score (lower is better; KM ref.: covariate-free Kaplan--Meier model). AUC($t$): cumulative/dynamic time-dependent AUC. Calibration slope (ideal 1) and observed/expected ratio (ideal 1) at 5 years. OOD: mean $\pm$ SD across external cohorts after averaging over five seeds; [k] marks metrics available in only k cohorts because of insufficient follow-up. InD: mean $\pm$ SD over five seeds.}
+\label{tab:calibration_dmfs}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccccccc}
+\toprule
+Model & IBS & IBS (KM ref.) & AUC(3y) & AUC(5y) & AUC(10y) & Cal. slope (5y) & O/E (5y) \\
+\midrule
+\multicolumn{8}{l}{\textit{InD}} \\
+TabSurv\_M & 0.173 $\pm$ 0.007 & 0.188 $\pm$ 0.005 & 0.757 $\pm$ 0.034 & 0.741 $\pm$ 0.033 & 0.725 $\pm$ 0.046 & 1.025 $\pm$ 0.238 & 1.051 $\pm$ 0.114 \\
+DeepHS & 0.205 $\pm$ 0.031 & 0.188 $\pm$ 0.005 & 0.589 $\pm$ 0.157 & 0.566 $\pm$ 0.123 & 0.569 $\pm$ 0.122 & 0.344 $\pm$ 0.318 & 1.286 $\pm$ 0.506 \\
+DeepSurv & 0.218 $\pm$ 0.019 & 0.188 $\pm$ 0.005 & 0.714 $\pm$ 0.050 & 0.669 $\pm$ 0.084 & 0.660 $\pm$ 0.095 & 0.255 $\pm$ 0.130 & 2.433 $\pm$ 1.493 \\
+ENCox & 0.206 $\pm$ 0.027 & 0.188 $\pm$ 0.005 & 0.679 $\pm$ 0.039 & 0.645 $\pm$ 0.026 & 0.639 $\pm$ 0.057 & 0.829 $\pm$ 0.708 & 1.223 $\pm$ 0.727 \\
+LH & 0.251 $\pm$ 0.090 & 0.188 $\pm$ 0.005 & 0.650 $\pm$ 0.047 & 0.646 $\pm$ 0.039 & 0.669 $\pm$ 0.058 & 0.382 $\pm$ 0.209 & 1.424 $\pm$ 0.759 \\
+MTLR & 0.226 $\pm$ 0.017 & 0.188 $\pm$ 0.005 & 0.680 $\pm$ 0.017 & 0.667 $\pm$ 0.049 & 0.649 $\pm$ 0.084 & 0.272 $\pm$ 0.047 & 1.093 $\pm$ 0.257 \\
+PCHazard & 0.232 $\pm$ 0.041 & 0.188 $\pm$ 0.005 & 0.666 $\pm$ 0.032 & 0.666 $\pm$ 0.016 & 0.672 $\pm$ 0.055 & 0.397 $\pm$ 0.111 & 1.164 $\pm$ 0.506 \\
+PMF & 0.210 $\pm$ 0.011 & 0.188 $\pm$ 0.005 & 0.664 $\pm$ 0.094 & 0.627 $\pm$ 0.069 & 0.621 $\pm$ 0.069 & 0.337 $\pm$ 0.216 & 1.037 $\pm$ 0.229 \\
+RSF & 0.182 $\pm$ 0.009 & 0.188 $\pm$ 0.005 & 0.725 $\pm$ 0.041 & 0.679 $\pm$ 0.074 & 0.655 $\pm$ 0.074 & 2.110 $\pm$ 0.745 & 1.146 $\pm$ 0.426 \\
+\midrule
+\multicolumn{8}{l}{\textit{OOD}} \\
+TabSurv\_M & 0.145 $\pm$ 0.029 & 0.129 $\pm$ 0.013 & 0.712 $\pm$ 0.085 & 0.688 $\pm$ 0.019 [3] & 0.618 $\pm$ 0.040 [3] & 1.343 $\pm$ 0.461 [3] & 0.674 $\pm$ 0.139 [3] \\
+DeepHS & 0.150 $\pm$ 0.024 & 0.129 $\pm$ 0.013 & 0.578 $\pm$ 0.032 & 0.583 $\pm$ 0.021 [3] & 0.548 $\pm$ 0.015 [3] & 0.642 $\pm$ 0.299 [3] & 0.730 $\pm$ 0.080 [3] \\
+DeepSurv & 0.153 $\pm$ 0.024 & 0.129 $\pm$ 0.013 & 0.655 $\pm$ 0.041 & 0.649 $\pm$ 0.014 [3] & 0.598 $\pm$ 0.016 [3] & 0.267 $\pm$ 0.020 [3] & 1.806 $\pm$ 0.097 [3] \\
+ENCox & 0.163 $\pm$ 0.022 & 0.129 $\pm$ 0.013 & 0.636 $\pm$ 0.054 & 0.615 $\pm$ 0.023 [3] & 0.569 $\pm$ 0.015 [3] & 1.076 $\pm$ 0.219 [3] & 0.743 $\pm$ 0.085 [3] \\
+LH & 0.225 $\pm$ 0.039 & 0.129 $\pm$ 0.013 & 0.624 $\pm$ 0.037 & 0.625 $\pm$ 0.012 [3] & 0.589 $\pm$ 0.021 [3] & 0.466 $\pm$ 0.221 [3] & 0.986 $\pm$ 0.100 [3] \\
+MTLR & 0.177 $\pm$ 0.032 & 0.129 $\pm$ 0.013 & 0.661 $\pm$ 0.050 & 0.657 $\pm$ 0.010 [3] & 0.599 $\pm$ 0.009 [3] & 0.334 $\pm$ 0.029 [3] & 0.687 $\pm$ 0.064 [3] \\
+PCHazard & 0.207 $\pm$ 0.043 & 0.129 $\pm$ 0.013 & 0.600 $\pm$ 0.031 & 0.623 $\pm$ 0.016 [3] & 0.593 $\pm$ 0.015 [3] & 0.400 $\pm$ 0.157 [3] & 0.783 $\pm$ 0.073 [3] \\
+PMF & 0.165 $\pm$ 0.030 & 0.129 $\pm$ 0.013 & 0.611 $\pm$ 0.043 & 0.606 $\pm$ 0.025 [3] & 0.563 $\pm$ 0.026 [3] & 0.379 $\pm$ 0.105 [3] & 0.632 $\pm$ 0.056 [3] \\
+RSF & 0.137 $\pm$ 0.018 & 0.129 $\pm$ 0.013 & 0.679 $\pm$ 0.059 & 0.646 $\pm$ 0.018 [3] & 0.588 $\pm$ 0.019 [3] & 2.050 $\pm$ 0.452 [3] & 0.644 $\pm$ 0.075 [3] \\
+\bottomrule
+\end{tabular}
+\end{table}

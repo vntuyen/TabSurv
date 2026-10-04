@@ -1,0 +1,23 @@
+scenario,setting,model,n_datasets,n_obs,expected_n_obs,mean_C-index,std_C-index,C-index (mean ± std),variability_basis,Stability_CI,Stability_note,complete,rank_by_mean_C_index
+RFS,InD,TabSurv_M,1,5,5,0.6265051110753961,0.00786702904499367,0.6265 ± 0.0079,seeds,,N/A for InD: stability is defined across cohorts,True,1
+RFS,InD,TabSurv_P,1,5,5,0.6164553903885361,0.009521955290827366,0.6165 ± 0.0095,seeds,,N/A for InD: stability is defined across cohorts,True,2
+RFS,InD,TabSurv_A,1,5,5,0.596548453927026,0.014060778376772788,0.5965 ± 0.0141,seeds,,N/A for InD: stability is defined across cohorts,True,5
+RFS,InD,DeepHS,1,5,5,0.5511878305346114,0.019050675707333025,0.5512 ± 0.0191,seeds,,N/A for InD: stability is defined across cohorts,True,11
+RFS,InD,DeepSurv,1,5,5,0.5922736874408753,0.0075801982047878054,0.5923 ± 0.0076,seeds,,N/A for InD: stability is defined across cohorts,True,7
+RFS,InD,ENCox,1,5,5,0.5992931051960556,0.01192549006973219,0.5993 ± 0.0119,seeds,,N/A for InD: stability is defined across cohorts,True,4
+RFS,InD,LH,1,5,5,0.5872087599658086,0.02179531267115122,0.5872 ± 0.0218,seeds,,N/A for InD: stability is defined across cohorts,True,8
+RFS,InD,MTLR,1,5,5,0.5867590301193644,0.0286223009708906,0.5868 ± 0.0286,seeds,,N/A for InD: stability is defined across cohorts,True,9
+RFS,InD,PCHazard,1,5,5,0.5929370475147081,0.014803290315810413,0.5929 ± 0.0148,seeds,,N/A for InD: stability is defined across cohorts,True,6
+RFS,InD,PMF,1,5,5,0.5866160291839456,0.00879498040791062,0.5866 ± 0.0088,seeds,,N/A for InD: stability is defined across cohorts,True,10
+RFS,InD,RSF,1,5,5,0.6002103431168324,0.013949413410726686,0.6002 ± 0.0139,seeds,,N/A for InD: stability is defined across cohorts,True,3
+RFS,OOD,TabSurv_M,6,30,30,0.6486941800246707,0.03981900121050982,0.6487 ± 0.0398,cohorts (after averaging seeds within cohort),0.6088751788141609,mean cohort C-index - SD across cohort mean C-indices,True,2
+RFS,OOD,TabSurv_P,6,30,30,0.6490602261428569,0.03705533130435976,0.6491 ± 0.0371,cohorts (after averaging seeds within cohort),0.6120048948384971,mean cohort C-index - SD across cohort mean C-indices,True,1
+RFS,OOD,TabSurv_A,6,30,30,0.628856478959924,0.03598785986726173,0.6289 ± 0.0360,cohorts (after averaging seeds within cohort),0.5928686190926623,mean cohort C-index - SD across cohort mean C-indices,True,4
+RFS,OOD,DeepHS,6,30,30,0.5571042581016862,0.023073566474001148,0.5571 ± 0.0231,cohorts (after averaging seeds within cohort),0.534030691627685,mean cohort C-index - SD across cohort mean C-indices,True,11
+RFS,OOD,DeepSurv,6,30,30,0.6289510416861354,0.03833893426773217,0.6290 ± 0.0383,cohorts (after averaging seeds within cohort),0.5906121074184032,mean cohort C-index - SD across cohort mean C-indices,True,3
+RFS,OOD,ENCox,6,30,30,0.6103354685972026,0.028886204725530426,0.6103 ± 0.0289,cohorts (after averaging seeds within cohort),0.5814492638716722,mean cohort C-index - SD across cohort mean C-indices,True,9
+RFS,OOD,LH,6,30,30,0.6083965360511784,0.03636625565514558,0.6084 ± 0.0364,cohorts (after averaging seeds within cohort),0.5720302803960328,mean cohort C-index - SD across cohort mean C-indices,True,10
+RFS,OOD,MTLR,6,30,30,0.6203953080262877,0.03684584108140643,0.6204 ± 0.0368,cohorts (after averaging seeds within cohort),0.5835494669448813,mean cohort C-index - SD across cohort mean C-indices,True,6
+RFS,OOD,PCHazard,6,30,30,0.6200885576103125,0.0358050296813447,0.6201 ± 0.0358,cohorts (after averaging seeds within cohort),0.5842835279289678,mean cohort C-index - SD across cohort mean C-indices,True,7
+RFS,OOD,PMF,6,30,30,0.6157600833044996,0.042345753623739324,0.6158 ± 0.0423,cohorts (after averaging seeds within cohort),0.5734143296807603,mean cohort C-index - SD across cohort mean C-indices,True,8
+RFS,OOD,RSF,6,30,30,0.6280257177057933,0.04144584569140402,0.6280 ± 0.0414,cohorts (after averaging seeds within cohort),0.5865798720143893,mean cohort C-index - SD across cohort mean C-indices,True,5

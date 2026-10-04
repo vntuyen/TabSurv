@@ -1,0 +1,28 @@
+\begin{table}[t]
+\centering
+\caption{In-distribution comparison (held-out METABRIC/NKI splits). $\Delta$C: TabSurv\_M minus baseline, averaged over five seeds, with 95\% paired patient-level bootstrap CI; $p_{\mathrm{H}}$: Holm-adjusted bootstrap $p$-value across baselines within each endpoint.}
+\label{tab:ind_effect_sizes}
+\footnotesize
+\begin{tabular}{llcc}
+\toprule
+Endpoint & Baseline & $\Delta$C (95\% CI) & $p_{\mathrm{H}}$ \\
+\midrule
+RFS & DeepHS & +0.0753 (+0.0606, +0.0900) & $<$0.0001 \\
+RFS & DeepSurv & +0.0342 (+0.0243, +0.0446) & $<$0.0001 \\
+RFS & ENCox & +0.0272 (+0.0169, +0.0373) & $<$0.0001 \\
+RFS & LH & +0.0393 (+0.0289, +0.0500) & $<$0.0001 \\
+RFS & MTLR & +0.0397 (+0.0277, +0.0511) & $<$0.0001 \\
+RFS & PCHazard & +0.0336 (+0.0235, +0.0429) & $<$0.0001 \\
+RFS & PMF & +0.0399 (+0.0290, +0.0504) & $<$0.0001 \\
+RFS & RSF & +0.0263 (+0.0162, +0.0364) & $<$0.0001 \\
+DMFS & DeepHS & +0.1392 (+0.1019, +0.1753) & $<$0.0001 \\
+DMFS & DeepSurv & +0.0408 (+0.0114, +0.0693) & 0.0090 \\
+DMFS & ENCox & +0.0690 (+0.0421, +0.0977) & $<$0.0001 \\
+DMFS & LH & +0.0458 (+0.0165, +0.0773) & 0.0040 \\
+DMFS & MTLR & +0.0589 (+0.0289, +0.0893) & $<$0.0001 \\
+DMFS & PCHazard & +0.0396 (+0.0123, +0.0695) & 0.0140 \\
+DMFS & PMF & +0.0712 (+0.0413, +0.1063) & $<$0.0001 \\
+DMFS & RSF & +0.0406 (+0.0139, +0.0667) & 0.0140 \\
+\bottomrule
+\end{tabular}
+\end{table}

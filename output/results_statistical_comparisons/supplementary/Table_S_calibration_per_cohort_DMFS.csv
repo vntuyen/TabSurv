@@ -1,0 +1,46 @@
+Endpoint,Cohort,Model,IBS,IBS (KM ref.),AUC(5y),Cal. slope (5y),O/E (5y)
+DMFS,nki (in-distribution),TabSurv_M,0.173 ± 0.007,0.188 ± 0.005,0.741 ± 0.033,1.03 ± 0.24,1.05 ± 0.11
+DMFS,nki (in-distribution),DeepHS,0.205 ± 0.031,0.188 ± 0.005,0.566 ± 0.123,0.34 ± 0.32,1.29 ± 0.51
+DMFS,nki (in-distribution),DeepSurv,0.218 ± 0.019,0.188 ± 0.005,0.669 ± 0.084,0.26 ± 0.13,2.43 ± 1.49
+DMFS,nki (in-distribution),ENCox,0.206 ± 0.027,0.188 ± 0.005,0.645 ± 0.026,0.83 ± 0.71,1.22 ± 0.73
+DMFS,nki (in-distribution),LH,0.251 ± 0.090,0.188 ± 0.005,0.646 ± 0.039,0.38 ± 0.21,1.42 ± 0.76
+DMFS,nki (in-distribution),MTLR,0.226 ± 0.017,0.188 ± 0.005,0.667 ± 0.049,0.27 ± 0.05,1.09 ± 0.26
+DMFS,nki (in-distribution),PCHazard,0.232 ± 0.041,0.188 ± 0.005,0.666 ± 0.016,0.40 ± 0.11,1.16 ± 0.51
+DMFS,nki (in-distribution),PMF,0.210 ± 0.011,0.188 ± 0.005,0.627 ± 0.069,0.34 ± 0.22,1.04 ± 0.23
+DMFS,nki (in-distribution),RSF,0.182 ± 0.009,0.188 ± 0.005,0.679 ± 0.074,2.11 ± 0.74,1.15 ± 0.43
+DMFS,hel (external),TabSurv_M,0.104 ± 0.002,0.113 ± 0.000,NA,NA,NA
+DMFS,hel (external),DeepHS,0.116 ± 0.005,0.113 ± 0.000,NA,NA,NA
+DMFS,hel (external),DeepSurv,0.119 ± 0.005,0.113 ± 0.000,NA,NA,NA
+DMFS,hel (external),ENCox,0.132 ± 0.029,0.113 ± 0.000,NA,NA,NA
+DMFS,hel (external),LH,0.170 ± 0.098,0.113 ± 0.000,NA,NA,NA
+DMFS,hel (external),MTLR,0.130 ± 0.008,0.113 ± 0.000,NA,NA,NA
+DMFS,hel (external),PCHazard,0.145 ± 0.036,0.113 ± 0.000,NA,NA,NA
+DMFS,hel (external),PMF,0.122 ± 0.010,0.113 ± 0.000,NA,NA,NA
+DMFS,hel (external),RSF,0.112 ± 0.006,0.113 ± 0.000,NA,NA,NA
+DMFS,unt (external),TabSurv_M,0.149 ± 0.007,0.131 ± 0.000,0.682 ± 0.031,0.99 ± 0.20,0.81 ± 0.20
+DMFS,unt (external),DeepHS,0.160 ± 0.012,0.131 ± 0.000,0.562 ± 0.080,0.39 ± 0.40,0.75 ± 0.22
+DMFS,unt (external),DeepSurv,0.161 ± 0.009,0.131 ± 0.000,0.642 ± 0.074,0.25 ± 0.11,1.69 ± 1.41
+DMFS,unt (external),ENCox,0.172 ± 0.041,0.131 ± 0.000,0.608 ± 0.076,0.93 ± 1.13,0.77 ± 0.47
+DMFS,unt (external),LH,0.239 ± 0.135,0.131 ± 0.000,0.625 ± 0.060,0.41 ± 0.22,0.91 ± 0.58
+DMFS,unt (external),MTLR,0.195 ± 0.023,0.131 ± 0.000,0.646 ± 0.050,0.30 ± 0.11,0.68 ± 0.08
+DMFS,unt (external),PCHazard,0.224 ± 0.089,0.131 ± 0.000,0.625 ± 0.030,0.36 ± 0.16,0.74 ± 0.39
+DMFS,unt (external),PMF,0.181 ± 0.020,0.131 ± 0.000,0.578 ± 0.069,0.27 ± 0.15,0.64 ± 0.08
+DMFS,unt (external),RSF,0.142 ± 0.012,0.131 ± 0.000,0.628 ± 0.069,1.60 ± 0.62,0.68 ± 0.22
+DMFS,transbig (external),TabSurv_M,0.172 ± 0.007,0.146 ± 0.000,0.673 ± 0.019,1.17 ± 0.20,0.67 ± 0.06
+DMFS,transbig (external),DeepHS,0.170 ± 0.013,0.146 ± 0.000,0.582 ± 0.102,0.57 ± 0.66,0.80 ± 0.22
+DMFS,transbig (external),DeepSurv,0.176 ± 0.009,0.146 ± 0.000,0.665 ± 0.058,0.27 ± 0.09,1.85 ± 1.47
+DMFS,transbig (external),ENCox,0.183 ± 0.036,0.146 ± 0.000,0.596 ± 0.083,0.97 ± 1.26,0.81 ± 0.49
+DMFS,transbig (external),LH,0.261 ± 0.143,0.146 ± 0.000,0.614 ± 0.070,0.28 ± 0.34,1.10 ± 0.82
+DMFS,transbig (external),MTLR,0.200 ± 0.024,0.146 ± 0.000,0.665 ± 0.076,0.34 ± 0.18,0.75 ± 0.10
+DMFS,transbig (external),PCHazard,0.244 ± 0.092,0.146 ± 0.000,0.606 ± 0.042,0.27 ± 0.27,0.87 ± 0.52
+DMFS,transbig (external),PMF,0.190 ± 0.015,0.146 ± 0.000,0.614 ± 0.061,0.38 ± 0.22,0.68 ± 0.15
+DMFS,transbig (external),RSF,0.154 ± 0.011,0.146 ± 0.000,0.645 ± 0.082,2.05 ± 1.15,0.70 ± 0.23
+DMFS,mainz (external),TabSurv_M,0.154 ± 0.007,0.128 ± 0.000,0.709 ± 0.026,1.86 ± 0.46,0.54 ± 0.02
+DMFS,mainz (external),DeepHS,0.153 ± 0.014,0.128 ± 0.000,0.604 ± 0.124,0.97 ± 0.93,0.64 ± 0.15
+DMFS,mainz (external),DeepSurv,0.154 ± 0.022,0.128 ± 0.000,0.640 ± 0.085,0.29 ± 0.17,1.87 ± 1.86
+DMFS,mainz (external),ENCox,0.166 ± 0.037,0.128 ± 0.000,0.641 ± 0.081,1.33 ± 1.55,0.65 ± 0.40
+DMFS,mainz (external),LH,0.232 ± 0.152,0.128 ± 0.000,0.637 ± 0.061,0.71 ± 0.56,0.94 ± 0.75
+DMFS,mainz (external),MTLR,0.182 ± 0.022,0.128 ± 0.000,0.660 ± 0.058,0.36 ± 0.15,0.62 ± 0.07
+DMFS,mainz (external),PCHazard,0.216 ± 0.101,0.128 ± 0.000,0.638 ± 0.047,0.57 ± 0.28,0.74 ± 0.53
+DMFS,mainz (external),PMF,0.166 ± 0.019,0.128 ± 0.000,0.626 ± 0.070,0.48 ± 0.32,0.57 ± 0.11
+DMFS,mainz (external),RSF,0.140 ± 0.014,0.128 ± 0.000,0.665 ± 0.063,2.50 ± 0.69,0.56 ± 0.18

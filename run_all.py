@@ -34,6 +34,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 OOD_METHODS = ["TabSurv_A", "TabSurv_M", "TabSurv_P", "baselines"]
 FINAL_REPORT_METHODS = ["TabSurv_A", PROPOSED_METHOD, "TabSurv_P", "baselines"]
 REC_METHODS = ["TabSurv_REC", "baselines_REC"]
+# Gene-set scenarios configured for TabSurv_REC only.
+TABSURV_ONLY_REC_SCENARIOS = {"Mills_panel", "Pereira_panel"}
 
 METHOD_SCRIPTS = {
     "TabSurv_A": "tabsurv_A.py",
@@ -126,9 +128,12 @@ def parse_args():
     # Treatment recommendation ------------------------------------------------
     p.add_argument(
         "--rec-scenario",
-        choices=["72genes", "allgenes", "both"],
+        choices=["Nik_panel", "Mills_panel", "Pereira_panel", "allgenes", "both"],
         default="both",
-        help="Treatment-recommendation gene-set scenario(s). Default: both.",
+        help=(
+            "Treatment-recommendation gene-set scenario(s). 'both' = Nik_panel + allgenes. "
+            "Mills_panel and Pereira_panel run TabSurv_REC only (baselines_REC is skipped). Default: both."
+        ),
     )
     p.add_argument(
         "--rec-baseline-models",
@@ -145,11 +150,21 @@ def parse_args():
     p.add_argument("--rec-seeds", nargs="+", type=int, default=SEEDS)
     p.add_argument("--rec-test-size", type=float, default=REC_TEST_SIZE)
     p.add_argument("--rec-full-reseed", action="store_true")
+    p.add_argument(
+        "--rec-per-seed-km-plots",
+        action="store_true",
+        help="Also save per-seed KM figures in the REC scripts.",
+    )
 
     # Reporting/control -------------------------------------------------------
     p.add_argument("--skip-evaluation", action="store_true", help="Skip evaluations.py.")
     p.add_argument("--skip-statistics", action="store_true", help="Skip the statistical comparison (Table 4).")
     p.add_argument("--skip-calibration", action="store_true", help="Skip calibration_evaluation.py.")
+    p.add_argument(
+        "--skip-km-summary",
+        action="store_true",
+        help="Skip the REC summary KM figure (TabSurv + all baselines per scenario).",
+    )
     p.add_argument("--n-boot", type=int, default=2000, help="Patient-level bootstrap resamples for Table 4.")
     p.add_argument(
         "--evaluation-only",
@@ -189,7 +204,7 @@ def main():
     if not 0.0 < args.rec_test_size < 1.0:
         raise SystemExit("--rec-test-size must be between 0 and 1")
     if args.rec_datasets is not None and args.rec_scenario == "both":
-        raise SystemExit("--rec-datasets can only be used with --rec-scenario 72genes or allgenes")
+        raise SystemExit("--rec-datasets can only be used with a single --rec-scenario (not 'both')")
     if args.evaluation_only and args.statistics_only:
         raise SystemExit("Choose at most one of --evaluation-only and --statistics-only.")
 
@@ -211,6 +226,13 @@ def main():
         for method in methods:
             script = SCRIPT_DIR / METHOD_SCRIPTS[method]
 
+            if method == "baselines_REC" and args.rec_scenario in TABSURV_ONLY_REC_SCENARIOS:
+                print(
+                    f"\nSkipping baselines_REC: --rec-scenario {args.rec_scenario} is a "
+                    "TabSurv-only scenario (no baseline output paths in experiment_config)."
+                )
+                continue
+
             if method in OOD_METHODS:
                 cmd = [sys.executable, str(script), "--scenario", args.scenario, "--setting", args.setting]
                 if method == "TabSurv_P":
@@ -231,6 +253,8 @@ def main():
                     cmd += ["--datasets", *args.rec_datasets]
                 if args.rec_full_reseed:
                     cmd.append("--full-reseed")
+                if args.rec_per_seed_km_plots:
+                    cmd.append("--per-seed-km-plots")
             elif method == "baselines_REC":
                 cmd = [
                     sys.executable, str(script),
@@ -243,6 +267,8 @@ def main():
                     cmd += ["--datasets", *args.rec_datasets]
                 if args.rec_full_reseed:
                     cmd.append("--full-reseed")
+                if args.rec_per_seed_km_plots:
+                    cmd.append("--per-seed-km-plots")
             else:
                 raise RuntimeError(f"Unhandled method: {method}")
 
@@ -253,6 +279,30 @@ def main():
                     return rc
 
     ood_methods = [m for m in methods if m in OOD_METHODS]
+
+    # REC summary KM figure ---------------------------------------------------
+    # One grid figure per scenario with TabSurv + every REC baseline, built from
+    # the saved prediction files. Runs whenever a REC method was selected
+    # (or with --evaluation-only), and only for scenarios that have baselines.
+    rec_selected = [m for m in methods if m in REC_METHODS]
+    if rec_selected and not args.statistics_only and not args.skip_km_summary:
+        if args.rec_scenario in TABSURV_ONLY_REC_SCENARIOS:
+            print(
+                f"\nREC KM summary skipped: {args.rec_scenario} is a TabSurv-only scenario "
+                "(its single pooled KM plot is written by tabsurv_REC.py)."
+            )
+        else:
+            cmd = [
+                sys.executable, str(SCRIPT_DIR / "plot_km_summary_REC.py"),
+                "--scenario", args.rec_scenario,
+                "--seeds", *[str(x) for x in args.rec_seeds],
+                "--models", *args.rec_baseline_models,
+            ]
+            rc = _run(cmd, dry_run=args.dry_run)
+            if rc != 0:
+                failures.append(("plot_km_summary_REC", rc))
+                if not args.continue_on_error:
+                    return rc
 
     # Evaluation -------------------------------------------------------------
     evaluation_ran = False

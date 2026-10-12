@@ -118,6 +118,9 @@ IBS_MAX_TIME = 10.0          # IBS integrated up to min(10 y, 80th pct of cohort
 SURV_GRID = np.round(np.arange(0.2, 20.0 + 1e-9, 0.2), 4)   # common grid for stored S(t|x)
 SAVE_SURVIVAL_MATRICES = True
 
+# Supplementary calibration / prediction-error figures (calibration_evaluation.py).
+CALIBRATION_SUPP_DIR = OUTPUT_ROOT / "results_statistical_comparisons" / "supplementary"
+
 # Training feature matrices are not needed by evaluations and can be very large.
 # Leave False for normal experiments. Set True only for debugging/auditing.
 SAVE_TRAINING_ARTIFACTS = False
@@ -159,7 +162,9 @@ OOD_REPORT_MODELS = FINAL_REPORT_MODELS.copy()
 # -----------------------------------------------------------------------------
 # Two REC gene-set scenarios. Both TabSurv_REC and baselines_REC can run either
 # scenario (or both) using the same split seeds and test fraction.
-REC_72GENES_DATASET = ["METABRIC_72genes"]
+REC_NIK_PANEL_DATASET = ["METABRIC_72genes"]
+REC_MILLS_PANEL_DATASET = ["METABRIC_35genes"]
+REC_PEREIRA_PANEL_DATASET = ["METABRIC_30genes"]
 REC_ALLGENES_DATASET = ["METABRIC_allgenes"]
 REC_TEST_SIZE = 0.3
 REC_MODEL_RANDOM_STATE = 42
@@ -182,20 +187,36 @@ REC_PREDICTIVE_BASELINE_MODELS = REC_BASELINE_MODELS.copy()
 
 # Gene-set scenario registry.  The scenario is the dataset representation,
 # not the method: each scenario contains method-specific output paths so both
-# TabSurv_REC and baselines_REC can run on BOTH 72genes and allgenes without
+# TabSurv_REC and baselines_REC can run on BOTH Nik_panel and allgenes without
 # overwriting one another.
 REC_SCENARIOS = {
-    "72genes": {
-        "datasets": REC_72GENES_DATASET,
+    "Nik_panel": {
+        "datasets": REC_NIK_PANEL_DATASET,
         "TabSurv_REC": {
-            "prediction_dir": REC_PREDICTION_DIR / "72genes" / "TabSurv_REC",
-            "results_dir": REC_RESULTS_DIR / "72genes",
-            "plots_dir": REC_PLOTS_DIR / "72genes" / "TabSurv_REC",
+            "prediction_dir": REC_PREDICTION_DIR / "Nik_panel" / "TabSurv_REC",
+            "results_dir": REC_RESULTS_DIR / "Nik_panel",
+            "plots_dir": REC_PLOTS_DIR / "Nik_panel" / "TabSurv_REC",
         },
         "baselines_REC": {
-            "prediction_dir": BASELINES_REC_PREDICTION_DIR / "72genes",
-            "results_dir": BASELINES_REC_RESULTS_DIR / "72genes",
-            "plots_dir": BASELINES_REC_PLOTS_DIR / "72genes" / "baselines_REC",
+            "prediction_dir": BASELINES_REC_PREDICTION_DIR / "Nik_panel",
+            "results_dir": BASELINES_REC_RESULTS_DIR / "Nik_panel",
+            "plots_dir": BASELINES_REC_PLOTS_DIR / "Nik_panel" / "baselines_REC",
+        },
+    },
+    "Mills_panel": {
+        "datasets": REC_MILLS_PANEL_DATASET,
+        "TabSurv_REC": {
+            "prediction_dir": REC_PREDICTION_DIR / "Mills_panel" / "TabSurv_REC",
+            "results_dir": REC_RESULTS_DIR / "Mills_panel",
+            "plots_dir": REC_PLOTS_DIR / "Mills_panel" / "TabSurv_REC",
+        },
+    },
+    "Pereira_panel": {
+        "datasets": REC_PEREIRA_PANEL_DATASET,
+        "TabSurv_REC": {
+            "prediction_dir": REC_PREDICTION_DIR / "Pereira_panel" / "TabSurv_REC",
+            "results_dir": REC_RESULTS_DIR / "Pereira_panel",
+            "plots_dir": REC_PLOTS_DIR / "Pereira_panel" / "TabSurv_REC",
         },
     },
     "allgenes": {
@@ -252,12 +273,14 @@ def selected_rec_scenarios(name: str):
     """Return REC gene-set scenario names in deterministic order."""
     key = str(name).lower()
     if key == "both":
-        return ["72genes", "allgenes"]
-    if key not in REC_SCENARIOS:
+        return ["Nik_panel", "allgenes"]
+    # Case-insensitive match that returns the canonical (mixed-case) key.
+    lookup = {k.lower(): k for k in REC_SCENARIOS}
+    if key not in lookup:
         raise ValueError(
-            f"Unknown REC scenario '{name}'. Choose 72genes, allgenes, or both."
+            f"Unknown REC scenario '{name}'. Choose one of {list(REC_SCENARIOS)} or 'both'."
         )
-    return [key]
+    return [lookup[key]]
 
 
 def ensure_rec_output_dirs(scenario_name: str, method_name: str):

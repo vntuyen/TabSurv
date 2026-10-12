@@ -5,7 +5,7 @@ A Python implementation of TabSurv: Foundation Model-Based Survival Analysis met
 
 # Infrastructure used to run experiments:
 * OS: MacOS, version 26.6.2.
-* CPU: Apple M5.
+* CPU: Apple M4Pro.
 * RAM: 24 GB.
 
 ## Datasets
@@ -15,13 +15,13 @@ TabSurv is evaluated on 12 breast cancer cohorts with recurrence-free survival (
 | Dataset | Sample size | Events | Event (%) | Min time | Max time | End point |
 |---|---:|---:|---:|---:|---:|:---:|
 | METABRIC | 1,980 | 647 | 32.68 | 0.00 | 29.60 | RFS |
-| GEO | 736 | 349 | 47.40 | 0.00 | 18.52 | RFS |
-| GSE6532 | 401 | 139 | 34.66 | 0.022 | 16.85 | RFS |
+| GEO | 736 | 349 | 47.42 | 0.00 | 18.52 | RFS |
+| GSE6532 | 401 | 139 | 34.66 | 0.02 | 16.85 | RFS |
 | GSE19783 | 100 | 43 | 43.00 | 0.69 | 10.62 | RFS |
 | TCGA500 | 500 | 45 | 9.00 | 0.00 | 17.91 | RFS |
 | UK | 207 | 77 | 37.20 | 0.39 | 10.00 | RFS |
-| UPP | 235 | 54 | 23.08 | 0.08 | 12.75 | RFS |
-| NKI | 320 | 109 | 34.17 | 0.02 | 18.35 | DMFS |
+| UPP | 235 | 54 | 22.98 | 0.08 | 12.75 | RFS |
+| NKI | 320 | 109 | 34.06 | 0.02 | 18.35 | DMFS |
 | MAINZ | 200 | 46 | 23.00 | 0.08 | 19.72 | DMFS |
 | HEL | 115 | 25 | 21.74 | 0.00 | 5.00 | DMFS |
 | UNT | 133 | 28 | 21.05 | 0.17 | 14.53 | DMFS |

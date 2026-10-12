@@ -11,9 +11,15 @@ Examples
 --------
     python tabsurv_REC.py
     python tabsurv_REC.py --seeds 42 43 44 45 46
-    python tabsurv_REC.py --scenario 72genes
+    python tabsurv_REC.py --scenario Nik_panel
+    python tabsurv_REC.py --scenario Mills_panel
+    python tabsurv_REC.py --scenario Pereira_panel
     python tabsurv_REC.py --test-size 0.3
     python tabsurv_REC.py --full-reseed
+    python tabsurv_REC.py --per-seed-km-plots      # also keep per-seed KM figures
+
+KM plots: one pooled 20-year figure per dataset across all seeds
+(<dataset>_TabSurv_<n>seeds_pooled_KM_plot.png), instead of one figure per seed.
 """
 
 import argparse
@@ -44,6 +50,7 @@ from utils import (
     manual_c_index_risk_score,
     survival_curves,
     mean_survival_time_km,
+    plot_km_across_seeds,
 )
 
 METHOD_NAME = "TabSurv"
@@ -59,6 +66,7 @@ def run_one_seed(
     plots_dir: Path,
     test_size: float,
     full_reseed: bool = False,
+    per_seed_plot: bool = False,
 ) -> dict:
     """Run one treatment-recommendation split for TabSurv."""
     model_seed = split_seed if full_reseed else REC_MODEL_RANDOM_STATE
@@ -150,13 +158,16 @@ def run_one_seed(
     rec_tp_counts = combined_df["REC_TP"].value_counts().to_dict()
     current_tp_counts = combined_df["CURRENT_TP"].value_counts().to_dict()
 
+    # Per-seed log-rank p-value is always recorded; the per-seed figure is
+    # optional (the default is one KM figure across seeds, see _run_rec_scenario).
     plot_path = plots_dir / f"{dataset_name}_{METHOD_NAME}_seed{split_seed}_risk_KM_plot.png"
     p_value = survival_curves(
         combined_df,
         "time",
         "event",
         f"{METHOD_NAME} (seed={split_seed})",
-        str(plot_path),
+        str(plot_path) if per_seed_plot else None,
+        make_plot=per_seed_plot,
     )
 
     follow_df = combined_df[combined_df["FOLLOW_REC"] == True]
@@ -212,9 +223,12 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--scenario",
-        choices=["72genes", "allgenes", "both"],
+        choices=["Nik_panel", "Mills_panel", "Pereira_panel", "allgenes", "both"],
         default="both",
-        help="REC gene-set scenario. Default: both.",
+        help=(
+            "REC gene-set scenario. 'both' = Nik_panel + allgenes. "
+            "Mills_panel and Pereira_panel are TabSurv-only scenarios. Default: both."
+        ),
     )
     p.add_argument(
         "--seeds",
@@ -229,7 +243,7 @@ def parse_args():
         default=None,
         help=(
             "Optional custom dataset override for a single REC scenario. Normally omit this "
-            "and use --scenario so 72genes/allgenes come from experiment_config.py."
+            "and use --scenario so the gene-set datasets come from experiment_config.py."
         ),
     )
     p.add_argument(
@@ -247,10 +261,16 @@ def parse_args():
             "the original split-sensitivity design."
         ),
     )
+    p.add_argument(
+        "--per-seed-km-plots",
+        action="store_true",
+        help="Also save the old per-seed KM figures (off by default).",
+    )
     return p.parse_args()
 
 
-def _run_rec_scenario(rec_scenario, seeds, test_size, full_reseed, datasets_override=None):
+def _run_rec_scenario(rec_scenario, seeds, test_size, full_reseed, datasets_override=None,
+                      per_seed_plots=False):
     dirs = ensure_rec_output_dirs(rec_scenario, "TabSurv_REC")
     prediction_dir = dirs["prediction_dir"]
     results_dir = dirs["results_dir"]
@@ -266,6 +286,8 @@ def _run_rec_scenario(rec_scenario, seeds, test_size, full_reseed, datasets_over
         "model_random_state": REC_MODEL_RANDOM_STATE,
         "full_reseed": full_reseed,
         "risk_base_model": RISK_BASE_MODEL,
+        "km_plot": "pooled across seeds",
+        "per_seed_km_plots": per_seed_plots,
     }
     (results_dir / "tabsurv_REC_run_metadata.json").write_text(
         json.dumps(metadata, indent=2), encoding="utf-8"
@@ -291,6 +313,7 @@ def _run_rec_scenario(rec_scenario, seeds, test_size, full_reseed, datasets_over
                     plots_dir,
                     test_size=test_size,
                     full_reseed=full_reseed,
+                    per_seed_plot=per_seed_plots,
                 )
                 row["rec_scenario"] = rec_scenario
             except Exception as exc:
@@ -332,6 +355,13 @@ def _run_rec_scenario(rec_scenario, seeds, test_size, full_reseed, datasets_over
         delta_std = float(delta.std(ddof=1)) if len(delta) > 1 else 0.0
         cidx_mean = float(cidx.mean())
         cidx_std = float(cidx.std(ddof=1)) if len(cidx) > 1 else 0.0
+
+        # One 20-year KM figure for this dataset across all valid seeds.
+        km = plot_km_across_seeds(
+            list(zip(group["seed"], group["prediction_file"])),
+            METHOD_NAME,
+            plots_dir / f"{dataset_name}_{METHOD_NAME}_{len(group)}seeds",
+        )
         summary_rows.append({
             "rec_scenario": rec_scenario,
             "dataset": dataset_name,
@@ -343,6 +373,7 @@ def _run_rec_scenario(rec_scenario, seeds, test_size, full_reseed, datasets_over
             "mean_delta_mean_survival": delta_mean,
             "std_delta_mean_survival": delta_std,
             "Delta mean survival (mean ± std)": format_mean_std(delta_mean, delta_std, ndigits=3),
+            **km,
         })
 
     summary_df = pd.DataFrame(summary_rows)
@@ -367,7 +398,7 @@ def main():
     if not seeds:
         raise SystemExit("At least one seed is required.")
     if args.datasets is not None and len(scenarios) != 1:
-        raise SystemExit("--datasets can only be used with a single --scenario (72genes or allgenes).")
+        raise SystemExit("--datasets can only be used with a single --scenario (Nik_panel, Mills_panel, Pereira_panel or allgenes).")
 
     all_raw = []
     all_summary = []
@@ -378,6 +409,7 @@ def main():
             args.test_size,
             args.full_reseed,
             datasets_override=args.datasets,
+            per_seed_plots=args.per_seed_km_plots,
         )
         all_raw.append(raw)
         all_summary.append(summary)

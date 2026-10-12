@@ -18,8 +18,10 @@ For each endpoint and each baseline:
    Random-effects meta-analysis of the cohort Delta C values
    (DerSimonian-Laird tau^2) with the Hartung-Knapp-Sidik-Jonkman (HKSJ)
    variance correction and a t distribution on k-1 df, which is recommended
-   when only a few cohorts are pooled. Reported: pooled Delta C, 95% CI, I^2,
-   and exact p-value; Holm-adjusted across the baselines within the endpoint.
+   when only a few cohorts are pooled. Reported in Table 4: pooled Delta C,
+   95% CI and exact p-value, Holm-adjusted across the baselines within the
+   endpoint. (tau^2 and I^2 are still computed and saved in
+   OOD_effect_sizes_full.csv but are not shown in Table 4.)
 
 3. Exact Wilcoxon signed-rank test on the cohort-level Delta C values
    (exact null distribution), Holm-adjusted across baselines within the
@@ -34,6 +36,15 @@ For each endpoint and each baseline:
 In-distribution (held-out METABRIC / NKI splits) comparisons are reported in a
 supplementary table as the seed-averaged Delta C with a patient-level
 bootstrap CI and bootstrap p-value, Holm-adjusted across baselines.
+
+Bootstrap p-values are two-sided and use the add-one rule
+    p = min(1, 2 * min(1 + #{Delta*<=0}, 1 + #{Delta*>=0}) / (B + 1)),
+so they are never zero. With B = 2,000 resamples the smallest attainable
+unadjusted p is 2/2001 = 0.0010; after Holm correction across m baselines the
+smallest attainable adjusted p is m * 0.0010 (0.0080 for 8 baselines). Values
+are reported exactly (no "<" bounds); values at the attainable minimum are
+flagged. A normal-approximation p-value (z = Delta C / bootstrap SE) is also
+saved in the CSV for reference.
 
 Outputs (./output/results_statistical_comparisons/):
     Table4_OOD_effect_sizes.csv / .tex     manuscript Table 4 (main columns)
@@ -167,13 +178,21 @@ def cohort_effects(pred_dir, dataset, setting, baselines, n_boot, rng, strict_se
         boot = np.nanmean(np.vstack(dp_boot), axis=0)
         boot = boot[np.isfinite(boot)]
         delta = float(np.mean(cp) - np.mean(cb))
-        p_boot = float(min(1.0, 2 * min((boot <= 0).mean(), (boot >= 0).mean())))
+        B = len(boot)
+        # Two-sided bootstrap p with the add-one rule (never 0; min = 2/(B+1)).
+        n_le, n_ge = int((boot <= 0).sum()), int((boot >= 0).sum())
+        p_boot = float(min(1.0, 2 * min(n_le + 1, n_ge + 1) / (B + 1)))
+        se = float(boot.std(ddof=1))
+        p_normal = float(2 * stats.norm.sf(abs(delta) / se)) if se > 0 else np.nan
         rows.append({
             "setting": setting, "dataset": dataset, "baseline": b,
             "C_proposed": float(np.mean(cp)), "C_baseline": float(np.mean(cb)),
             "delta_C": delta,
             "ci_lo": float(np.percentile(boot, 2.5)), "ci_hi": float(np.percentile(boot, 97.5)),
-            "se_boot": float(boot.std(ddof=1)), "p_boot": p_boot,
+            "se_boot": se, "p_boot": p_boot,
+            "p_boot_min_attainable": float(min(1.0, 2.0 / (B + 1))),
+            "p_boot_at_minimum": bool(np.isclose(p_boot, 2.0 / (B + 1))),
+            "p_normal": p_normal,
             "n_patients": int(np.mean([len(prop[s]) for s in seeds])),
             "n_events": int(np.mean([prop[s]["event"].sum() for s in seeds])),
             "n_seeds": len(seeds), "n_boot": int(len(boot)),
@@ -278,9 +297,18 @@ def pooled_ood(cohort_df, scenario, baselines):
 # Manuscript tables
 # ---------------------------------------------------------------------------
 def _p(p):
-    if not np.isfinite(p):
+    """Exact p-value: 4 decimals, or 2 significant digits in e-notation below 0.0001."""
+    if p is None or not np.isfinite(p):
         return "NA"
-    return f"{p:.4f}" if p >= 0.0001 else "<0.0001"
+    return f"{p:.4f}" if p >= 0.0001 else f"{p:.1e}"
+
+
+def _p_tex(txt):
+    """'3.2e-05' -> '$3.2\\times10^{-5}$'; other strings unchanged."""
+    if "e-" in txt:
+        mant, exp = txt.split("e-")
+        return rf"${mant}\times10^{{-{int(exp)}}}$"
+    return txt
 
 
 def table4(full):
@@ -290,7 +318,6 @@ def table4(full):
             "Endpoint": r.scenario,
             "Baseline": r.baseline,
             "Delta C (95% CI)": f"{r.re_pooled_delta_C:+.4f} ({r.re_ci_lo:+.4f}, {r.re_ci_hi:+.4f})",
-            "I2 (%)": f"{100 * r.I2:.0f}",
             "W/L (CI excl. 0)": f"{r.wins}/{r.losses} ({r.cohorts_CI_above_0}/{r.cohorts_CI_below_0})",
             "p_Holm pooled": _p(r.re_p_holm),
             "p_Holm Wilcoxon": _p(r.wilcoxon_p_holm),
@@ -306,8 +333,8 @@ def table4_latex(t4, cohorts):
         rf"({k_rfs} external cohorts) and DMFS ({k_dmfs} external cohorts) endpoints. "
         r"$\Delta$C: pooled difference in C-index (TabSurv\_M minus baseline) from a random-effects "
         r"meta-analysis of cohort-level differences (each averaged over five seeds, with standard errors "
-        r"from a paired patient-level bootstrap, 2{,}000 resamples), with Hartung--Knapp 95\% CI; "
-        r"$I^2$: between-cohort heterogeneity. W/L: cohorts in which TabSurv\_M has a higher/lower "
+        r"from a paired patient-level bootstrap, 2{,}000 resamples), with Hartung--Knapp 95\% CI. "
+        r"W/L: cohorts in which TabSurv\_M has a higher/lower "
         r"C-index; in parentheses, cohorts whose bootstrap CI excludes zero in favour of TabSurv\_M/the "
         r"baseline. $p_{\mathrm{H}}$: Holm-adjusted $p$-values across the eight baselines within each "
         r"endpoint, for the pooled estimate and for the exact Wilcoxon signed-rank test on cohort-level "
@@ -316,18 +343,18 @@ def table4_latex(t4, cohorts):
     )
     lines = [r"\begin{table*}[t]", r"\centering", rf"\caption{{{cap}}}",
              r"\label{tab:statistical_comparison}", r"\footnotesize", r"\setlength{\tabcolsep}{4pt}",
-             r"\begin{tabular}{llccccc}", r"\toprule",
-             r"Baseline & $\Delta$C (95\% CI) & $I^2$ (\%) & W/L & $p_{\mathrm{H}}$ pooled & "
+             r"\begin{tabular}{lccccc}", r"\toprule",
+             r"Baseline & $\Delta$C (95\% CI) & W/L & $p_{\mathrm{H}}$ pooled & "
              r"$p_{\mathrm{H}}$ Wilcoxon & LOO $\Delta$C range \\"]
     for ep in ["RFS", "DMFS"]:
         sub = t4[t4.Endpoint == ep]
         if sub.empty:
             continue
-        lines += [r"\midrule", rf"\multicolumn{{7}}{{l}}{{\textit{{{ep} endpoint}}}} \\"]
+        lines += [r"\midrule", rf"\multicolumn{{6}}{{l}}{{\textit{{{ep} endpoint}}}} \\"]
         for _, r in sub.iterrows():
-            lines.append(" & ".join([r.Baseline, r["Delta C (95% CI)"], r["I2 (%)"], r["W/L (CI excl. 0)"],
-                                     r["p_Holm pooled"].replace("<", "$<$"),
-                                     r["p_Holm Wilcoxon"].replace("<", "$<$"),
+            lines.append(" & ".join([r.Baseline, r["Delta C (95% CI)"], r["W/L (CI excl. 0)"],
+                                     _p_tex(r["p_Holm pooled"]),
+                                     _p_tex(r["p_Holm Wilcoxon"]),
                                      r["LOO Delta C range"].replace(" to ", " to ")]) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""]
     return "\n".join(lines)
@@ -366,21 +393,41 @@ def per_cohort_latex(wide):
 def ind_table(ind_df):
     ind_df = ind_df.copy()
     ind_df["p_boot_holm"] = np.nan
+    ind_df["p_normal_holm"] = np.nan
+    ind_df["p_boot_holm_min_attainable"] = np.nan
     for sc, idx in ind_df.groupby("scenario").groups.items():
         ind_df.loc[idx, "p_boot_holm"] = holm(ind_df.loc[idx, "p_boot"])
+        ind_df.loc[idx, "p_normal_holm"] = holm(ind_df.loc[idx, "p_normal"])
+        m = int(np.isfinite(ind_df.loc[idx, "p_boot"]).sum())
+        ind_df.loc[idx, "p_boot_holm_min_attainable"] = np.minimum(
+            1.0, m * ind_df.loc[idx, "p_boot_min_attainable"])
     return ind_df
 
 
 def ind_latex(ind_df):
-    lines = [r"\begin{table}[t]", r"\centering",
-             r"\caption{In-distribution comparison (held-out METABRIC/NKI splits). $\Delta$C: TabSurv\_M "
-             r"minus baseline, averaged over five seeds, with 95\% paired patient-level bootstrap CI; "
-             r"$p_{\mathrm{H}}$: Holm-adjusted bootstrap $p$-value across baselines within each endpoint.}",
+    B = int(ind_df["n_boot"].max())
+    m = int(ind_df.groupby("scenario").baseline.nunique().max())
+    p_min = 2.0 / (B + 1)
+    B_tex = f"{B:,}".replace(",", "{,}")
+    p_min_holm = min(1.0, m * p_min)
+    cap = (
+        r"In-distribution comparison (held-out METABRIC/NKI splits). $\Delta$C: TabSurv\_M minus "
+        r"baseline, averaged over five seeds, with 95\% paired patient-level bootstrap CI. "
+        r"$p_{\mathrm{H}}$: two-sided paired bootstrap $p$-value, "
+        r"$p = 2\min\{1+\#(\Delta^{*}\le 0),\,1+\#(\Delta^{*}\ge 0)\}/(B+1)$ with "
+        rf"$B={B_tex}$ resamples, Holm-adjusted across the {m} baselines within each endpoint. "
+        rf"With $B={B_tex}$ the smallest attainable unadjusted $p$ is $2/(B+1)={p_min:.4f}$ and the "
+        rf"smallest attainable Holm-adjusted $p$ is ${m}\times{p_min:.4f}={p_min_holm:.4f}$. "
+        r"Values marked $^{\dagger}$ equal this bound, so the exact adjusted $p$-value may be smaller. "
+        r"All values are exact bootstrap $p$-values; no normal approximation is used."
+    )
+    lines = [r"\begin{table}[t]", r"\centering", rf"\caption{{{cap}}}",
              r"\label{tab:ind_effect_sizes}", r"\footnotesize", r"\begin{tabular}{llcc}", r"\toprule",
              r"Endpoint & Baseline & $\Delta$C (95\% CI) & $p_{\mathrm{H}}$ \\", r"\midrule"]
     for _, r in ind_df.iterrows():
+        flag = r"$^{\dagger}$" if np.isclose(r.p_boot_holm, r.p_boot_holm_min_attainable) else ""
         lines.append(f"{r.scenario} & {r.baseline} & {r.delta_C:+.4f} ({r.ci_lo:+.4f}, {r.ci_hi:+.4f}) & "
-                     f"{_p(r.p_boot_holm).replace('<', '$<$')}" + r" \\")
+                     f"{_p_tex(_p(r.p_boot_holm))}{flag}" + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]
     return "\n".join(lines)
 

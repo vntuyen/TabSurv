@@ -42,15 +42,14 @@ from experiment_config import (
     compact_prediction_frame, ensure_rec_output_dirs, format_mean_std,
 )
 from models import get_model, model_dict, fit_coxnet_survival
-from utils import get_labtrans, evaluate_model_sksurv, survival_curves, mean_survival_time_km
+from utils import (
+    get_labtrans, evaluate_model_sksurv, survival_curves, mean_survival_time_km,
+    plot_km_across_seeds,
+)
 
+PER_SEED_KM_PLOTS = False
 # ============================================================================
-# Embedded causal-survival baseline implementations
-# SurvITE and BITES are intentionally defined in this file so baselines_REC.py
-# is self-contained and requires no local survite_rec.py / bites_rec.py modules.
 # ============================================================================
-
-
 try:
     from geomloss import SamplesLoss
 except Exception as exc:  # BITES is optional unless selected
@@ -608,7 +607,6 @@ class BitesRecommender:
             self.model.load_state_dict(best_state)
         self.model.eval()
 
-        # Treatment-specific Breslow baseline hazards from factual training heads.
         with torch.no_grad():
             r0, r1, _ = self.model(Xtr)
         r0 = r0.cpu().numpy(); r1 = r1.cpu().numpy()
@@ -637,7 +635,6 @@ class BitesRecommender:
     def recommend(self, X):
         med0, med1, r0, r1 = self.predict_counterfactual_median(X)
         rec = (med1 > med0).astype(int)
-        # Ties default to control (0), deterministic and conservative.
         return rec, med0, med1, r0, r1
 
 COXNET_MODEL_NAME = "ENCox"
@@ -690,7 +687,11 @@ def _finalize_policy_result(dataset_name, model_name, split_seed, df_test, durat
 
     combined = pred_df.copy()
     plot_path = plots_dir / f"{dataset_name}_{model_name}_seed{split_seed}_risk_KM_plot.png"
-    p_value = survival_curves(combined, "time", "event", f"{model_name} (seed={split_seed})", str(plot_path))
+    p_value = survival_curves(
+        combined, "time", "event", f"{model_name} (seed={split_seed})",
+        str(plot_path) if PER_SEED_KM_PLOTS else None,
+        make_plot=PER_SEED_KM_PLOTS,
+    )
     follow_df = combined[combined["FOLLOW_REC"] == 1]
     not_follow_df = combined[combined["FOLLOW_REC"] == 0]
     mean_follow = mean_survival_time_km(follow_df["time"], follow_df["event"]) if len(follow_df) else np.nan
@@ -926,7 +927,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--scenario",
-        choices=["72genes", "allgenes", "both"],
+        choices=["Nik_panel", "allgenes", "both"],
         default="both",
         help="REC gene-set scenario. Default: both.",
     )
@@ -937,12 +938,17 @@ def parse_args():
         default=None,
         help=(
             "Optional custom dataset override for a single REC scenario. Normally omit this "
-            "and use --scenario so 72genes/allgenes come from experiment_config.py."
+            "and use --scenario so Nik_panel/allgenes come from experiment_config.py."
         ),
     )
     p.add_argument("--models", nargs="+", choices=REC_ALL_BASELINE_MODELS, default=None)
     p.add_argument("--test-size", type=float, default=REC_TEST_SIZE)
     p.add_argument("--full-reseed", action="store_true")
+    p.add_argument(
+        "--per-seed-km-plots",
+        action="store_true",
+        help="Also save the old per-seed KM figures (off by default).",
+    )
     return p.parse_args()
 
 
@@ -967,6 +973,8 @@ def _run_rec_scenario(rec_scenario, seeds, models, test_size, full_reseed, datas
         "causal_RMST_horizon": REC_CAUSAL_HORIZON,
         "SurvITE_epochs": REC_SURVITE_EPOCHS,
         "SurvITE_beta": REC_SURVITE_BETA,
+        "km_plot": "pooled across seeds",
+        "per_seed_km_plots": PER_SEED_KM_PLOTS,
     }
     (results_dir / "baselines_REC_run_metadata.json").write_text(
         json.dumps(metadata, indent=2), encoding="utf-8"
@@ -1029,6 +1037,17 @@ def _run_rec_scenario(rec_scenario, seeds, models, test_size, full_reseed, datas
         ds = float(d.std(ddof=1)) if len(d) > 1 else (0.0 if len(d) == 1 else np.nan)
         cm = float(c.mean()) if len(c) else np.nan
         cs = float(c.std(ddof=1)) if len(c) > 1 else (0.0 if len(c) == 1 else np.nan)
+
+        # One 20-year KM figure for this dataset/model across all successful seeds.
+        if "prediction_file" in g.columns:
+            ok = g[g["prediction_file"].notna()]
+            seed_files = list(zip(ok["seed"], ok["prediction_file"]))
+        else:
+            seed_files = []
+        km = plot_km_across_seeds(
+            seed_files, model,
+            plots_dir / f"{dataset}_{model}_{len(seed_files)}seeds",
+        )
         summary.append({
             "rec_scenario": rec_scenario,
             "dataset": dataset,
@@ -1040,6 +1059,7 @@ def _run_rec_scenario(rec_scenario, seeds, models, test_size, full_reseed, datas
             "mean_delta_mean_survival": dm,
             "std_delta_mean_survival": ds,
             "Delta mean survival (mean ± std)": format_mean_std(dm, ds, ndigits=3),
+            **km,
         })
 
     summary_df = pd.DataFrame(summary)
@@ -1057,7 +1077,9 @@ def _run_rec_scenario(rec_scenario, seeds, models, test_size, full_reseed, datas
 
 
 def main():
+    global PER_SEED_KM_PLOTS
     args = parse_args()
+    PER_SEED_KM_PLOTS = bool(args.per_seed_km_plots)
     seeds = list(SEEDS if args.seeds is None else args.seeds)
     models = list(REC_ALL_BASELINE_MODELS if args.models is None else args.models)
     scenarios = selected_rec_scenarios(args.scenario)
@@ -1067,7 +1089,7 @@ def main():
     if not seeds:
         raise SystemExit("At least one seed is required")
     if args.datasets is not None and len(scenarios) != 1:
-        raise SystemExit("--datasets can only be used with a single --scenario (72genes or allgenes).")
+        raise SystemExit("--datasets can only be used with a single --scenario (Nik_panel or allgenes).")
 
     all_raw = []
     all_summary = []

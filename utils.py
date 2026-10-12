@@ -172,9 +172,20 @@ def evaluate_model_sksurv(model, x_test, durations_test, events_test, model_name
         'df_results': df_results
     }
 
-###KM curve for 20 years (maximum
+###KM curve for 20 years
 def survival_curves(data, time_col, event_col,
-                    method_name, output_plot_path=None):
+                    method_name, output_plot_path=None, make_plot=True,
+                    show_p_value=True):
+    """KM curves (Followed vs Not Followed) up to 20 years plus log-rank p-value.
+
+    With ``make_plot=False`` only the log-rank p-value is computed (no figure),
+    which is how the REC scripts call it per seed; the single figure per
+    dataset/model is produced by ``plot_km_across_seeds``.
+
+    With ``show_p_value=False`` no log-rank test is run, the title shows only
+    ``method_name`` and the function returns ``None``. This is used for the
+    pooled multi-seed curves, for which no p-value is reported.
+    """
 
     # Drop rows with missing values
     data = data.dropna(subset=[time_col, event_col])
@@ -199,13 +210,18 @@ def survival_curves(data, time_col, event_col,
         label="Not Followed"
     )
 
-    # Log-rank test for p-value
-    logrank_res = logrank_test(
-        followed[time_col], not_followed[time_col],
-        event_observed_A=followed[event_col],
-        event_observed_B=not_followed[event_col]
-    )
-    p_value = logrank_res.p_value
+    # Log-rank test for p-value (skipped when no p-value is to be reported)
+    p_value = None
+    if show_p_value or not make_plot:
+        logrank_res = logrank_test(
+            followed[time_col], not_followed[time_col],
+            event_observed_A=followed[event_col],
+            event_observed_B=not_followed[event_col]
+        )
+        p_value = logrank_res.p_value
+
+    if not make_plot:
+        return p_value
 
     # Plot curves
     plt.figure(figsize=(10, 6))
@@ -216,7 +232,10 @@ def survival_curves(data, time_col, event_col,
     # plt.xlim(0, 25)
     plt.xlim(0, 20)
 
-    plt.title(f"{method_name} (p = {p_value:.4f})", fontsize=32)
+    if show_p_value:
+        plt.title(f"{method_name} (p = {p_value:.4f})", fontsize=32)
+    else:
+        plt.title(method_name, fontsize=32)
     plt.xlabel("Time (Years)", fontsize=20)
     plt.ylabel("Survival Probability", fontsize=18)
     plt.legend(fontsize=16)
@@ -230,9 +249,133 @@ def survival_curves(data, time_col, event_col,
     else:
         plt.show()
 
-    print(f"P-value: {method_name}: {p_value}")
+    if show_p_value:
+        print(f"P-value: {method_name}: {p_value}")
 
     return p_value
+
+
+# ------------------------------------------------------------------------
+# One pooled KM figure across seeds (20-year horizon)
+# ------------------------------------------------------------------------
+
+def _load_seed_prediction_frames(prediction_files, time_col="time", event_col="event"):
+    """Read per-seed prediction CSVs. ``prediction_files`` = iterable of (seed, path)."""
+    frames = []
+    for seed, path in prediction_files:
+        if path is None or (isinstance(path, float) and np.isnan(path)):
+            continue
+        try:
+            df = pd.read_csv(path)
+        except FileNotFoundError:
+            print(f"[KM] Missing prediction file for seed={seed}: {path}")
+            continue
+        df = df.dropna(subset=[time_col, event_col, "FOLLOW_REC"]).copy()
+        df["FOLLOW_REC"] = df["FOLLOW_REC"].astype(int)
+        df["seed"] = int(seed)
+        frames.append(df)
+    return frames
+
+
+def plot_km_across_seeds(prediction_files, method_name, plot_prefix,
+                         time_col="time", event_col="event"):
+    """One pooled 20-year KM figure per dataset/model from all seeds.
+
+    Stacks the test-set predictions of every seed and fits one KM curve per group
+    (Followed / Not Followed) with ``survival_curves``.
+
+    prediction_files : iterable of (seed, csv_path) with time/event/FOLLOW_REC columns.
+    plot_prefix      : path prefix; writes '<prefix>_pooled_KM_plot.png'.
+    Returns a dict of summary columns for the results CSV.
+
+    No log-rank p-value is computed or shown for the pooled curves: the log-rank
+    test only assesses whether the curves differ, not whether Followed lies above
+    Not Followed, and because the 70/30 test sets overlap across splits, a test
+    on the pooled data would treat repeated patients as independent and
+    overstate significance.
+    """
+    out = {"km_n_seeds": 0}
+    frames = _load_seed_prediction_frames(prediction_files, time_col, event_col)
+    out["km_n_seeds"] = len(frames)
+    if not frames:
+        return out
+
+    pooled = pd.concat(frames, ignore_index=True)
+    survival_curves(
+        pooled, time_col, event_col,
+        f"{method_name}, {len(frames)} seeds pooled",
+        f"{plot_prefix}_pooled_KM_plot.png",
+        show_p_value=False,
+    )
+    return out
+
+
+def plot_km_summary_grid(method_files, suptitle, output_path, ncols=3,
+                         max_time=20.0, time_col="time", event_col="event"):
+    """Summary figure: one pooled 20-year KM panel per method in a grid.
+
+    method_files : ordered list of (method_name, [(seed, csv_path), ...]).
+                   Each panel stacks that method's per-seed test predictions
+                   (Followed vs Not Followed), as in ``plot_km_across_seeds``.
+    suptitle     : figure title, e.g. "Kaplan–Meier survival curves for ...".
+    output_path  : PNG path; a PDF with the same stem is saved alongside.
+
+    No log-rank p-values are computed or shown (see ``plot_km_across_seeds``).
+    Methods without any usable prediction file are left out with a warning.
+    Returns the list of method names that were plotted.
+    """
+    import math
+    from pathlib import Path
+
+    panels = []
+    for method_name, files in method_files:
+        frames = _load_seed_prediction_frames(files, time_col, event_col)
+        if not frames:
+            print(f"[KM summary] No prediction files for {method_name}; panel skipped.")
+            continue
+        pooled = pd.concat(frames, ignore_index=True)
+        followed = pooled[pooled["FOLLOW_REC"] == 1]
+        not_followed = pooled[pooled["FOLLOW_REC"] == 0]
+        if followed.empty or not_followed.empty:
+            print(f"[KM summary] {method_name}: one group is empty; panel skipped.")
+            continue
+        panels.append((method_name, len(frames), followed, not_followed))
+
+    if not panels:
+        print("[KM summary] Nothing to plot.")
+        return []
+
+    ncols = max(1, min(ncols, len(panels)))
+    nrows = math.ceil(len(panels) / ncols)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(8.0 * ncols, 5.6 * nrows), squeeze=False)
+
+    for ax, (method_name, n_seeds, followed, not_followed) in zip(axes.flat, panels):
+        KaplanMeierFitter().fit(followed[time_col], followed[event_col], label="Followed") \
+            .plot(ax=ax, ci_show=True, linewidth=2)
+        KaplanMeierFitter().fit(not_followed[time_col], not_followed[event_col], label="Not Followed") \
+            .plot(ax=ax, ci_show=True, linewidth=2)
+        ax.set_xlim(0, max_time)
+        ax.set_ylim(-0.02, 1.04)
+        ax.set_title(f"{method_name}, {n_seeds} seeds pooled", fontsize=24)
+        ax.set_xlabel("Time (Years)", fontsize=17)
+        ax.set_ylabel("Survival Probability", fontsize=15)
+        ax.tick_params(labelsize=11)
+        ax.legend(fontsize=14, loc="upper right")
+        ax.grid(True)
+
+    for ax in list(axes.flat)[len(panels):]:
+        ax.set_visible(False)
+
+    fig.suptitle(suptitle, fontsize=34, fontweight="bold", y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.985), h_pad=2.5, w_pad=2.0)
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    fig.savefig(output_path.with_suffix(".pdf"), bbox_inches="tight")
+    plt.close(fig)
+    print(f"KM summary figure saved to {output_path} (+ .pdf)")
+    return [p[0] for p in panels]
 
 
 

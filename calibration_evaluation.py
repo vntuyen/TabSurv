@@ -23,6 +23,18 @@ Outputs (both endpoints, in output/results_statistical_comparisons/):
     Fig_calibration_summary.pdf / .png         Supplementary figure,
                                                drawn by make_summary_figure() below
 
+Supplementary per-cohort outputs (in output/results_statistical_comparisons/supplementary/):
+    Fig_S_calibration_<endpoint>_<h>y.pdf/.png   calibration curves at each horizon
+                                                 (one panel per cohort, InD + external)
+    Fig_S_prediction_error_<endpoint>.pdf/.png   Brier score over time per cohort
+                                                 (Kaplan-Meier reference dashed)
+    Table_S_calibration_per_cohort_<endpoint>.csv/.tex
+                                                 IBS, AUC, slope, O/E per cohort and model
+    Supplementary_calibration_figures.tex        LaTeX figure blocks with captions
+
+    Re-draw from saved CSVs without re-evaluating:
+        python calibration_evaluation.py --supp-only
+
 Usage:
     python calibration_evaluation.py --scenario both --setting both
 """
@@ -41,8 +53,10 @@ import pandas as pd  # noqa: E402
 from experiment_config import (  # noqa: E402
     BASELINE_MODELS,
     CALIBRATION_HORIZONS,
+    CALIBRATION_SUPP_DIR,
     MAIN_CALIBRATION_HORIZON,
     PROPOSED_METHOD,
+    SCENARIOS,
     SEEDS,
     ensure_output_dirs,
     selected_scenarios,
@@ -61,7 +75,7 @@ def _fmt(m, s, d=3):
     return f"{m:.{d}f} ± {0.0 if not np.isfinite(s) else s:.{d}f}"
 
 
-def evaluate_scenario(scenario, settings, models):
+def evaluate_scenario(scenario, settings, models, supp=True):
     cfg = ensure_output_dirs(scenario)
     pred_dir = cfg["prediction_dir"]
     out_dir = cfg["results_dir"] / "calibration"
@@ -131,6 +145,8 @@ def evaluate_scenario(scenario, settings, models):
     _plot_pec(pec_df, out_dir, models)
     if not cal_df.empty:
         _plot_calibration(cal_df, out_dir)
+    if supp:
+        make_supplementary_outputs(scenario, pec_df, cal_df, by_cohort, models)
     print(f"\nSaved calibration outputs for {scenario} in {out_dir}")
     print(table.to_string(index=False))
     return table, by_cohort
@@ -449,6 +465,312 @@ def make_summary_figure(df, out_dir):
     return out_dir / "Fig_calibration_summary.pdf"
 
 
+# ---------------------------------------------------------------------------
+# Supplementary per-cohort figures and table
+# ---------------------------------------------------------------------------
+# One figure per endpoint and horizon with a calibration panel for every cohort
+# (in-distribution source cohort first, then the external cohorts in config
+# order), and one figure per endpoint with the prediction-error (Brier score)
+# curve for every cohort. Curves are averaged over the five seeds. TabSurv_M is
+# drawn thick in the accent colour; baselines are thin, each in its own colour;
+# the colour of every model is the same across all figures.
+SUPP_COLORS = {
+    "TabSurv_M": ACCENT,
+    "TabSurv_P": "#0b3d91",
+    "TabSurv_A": "#6aa7e8",
+    "DeepHS": "#e8743b",
+    "DeepSurv": "#19a979",
+    "ENCox": "#c03b5e",
+    "LH": "#945ecf",
+    "MTLR": "#8c564b",
+    "PCHazard": "#d4a017",
+    "PMF": "#13a4b4",
+    "RSF": "#4c4c4c",
+}
+SUPP_FALLBACK_COLORS = ["#7f7f7f", "#bcbd22", "#17becf", "#aec7e8", "#ff9896"]
+
+
+def _supp_style(model, models):
+    if model in SUPP_COLORS:
+        color = SUPP_COLORS[model]
+    else:
+        extra = [m for m in models if m not in SUPP_COLORS]
+        color = SUPP_FALLBACK_COLORS[extra.index(model) % len(SUPP_FALLBACK_COLORS)]
+    main = model == PROPOSED_METHOD
+    return dict(color=color, lw=2.4 if main else 1.1, zorder=4 if main else 2,
+                alpha=1.0 if main else 0.85)
+
+
+def _supp_cohorts(scenario, df):
+    """Ordered (setting, dataset, label) panels present in df: InD first, then OOD."""
+    cfg = SCENARIOS[scenario]
+    present = set(zip(df["setting"], df["dataset"]))
+    out = []
+    if ("InD", cfg["training_dataset"]) in present:
+        out.append(("InD", cfg["training_dataset"], f"{cfg['training_dataset']} (in-distribution)"))
+    for d in cfg["testing_datasets"]:
+        if ("OOD", d) in present:
+            out.append(("OOD", d, f"{d} (external)"))
+    # anything else present but not in config, keep its order
+    for setting, d in dict.fromkeys(zip(df["setting"], df["dataset"])):
+        if not any(o[0] == setting and o[1] == d for o in out):
+            out.append((setting, d, f"{d} ({'in-distribution' if setting == 'InD' else 'external'})"))
+    return out
+
+
+def _supp_grid(n, ncol=3, w=4.3, h=3.6):
+    ncol = max(1, min(ncol, n))
+    nrow = int(np.ceil(n / ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(w * ncol, h * nrow + 0.9), squeeze=False)
+    return fig, axes
+
+
+def _supp_legend(fig, models, extra=None):
+    handles = [Line2D([], [], **{k: v for k, v in _supp_style(m, models).items()
+                                 if k in ("color", "lw")}, label=m) for m in models]
+    if extra:
+        handles += extra
+    fig.legend(handles=handles, loc="lower center", ncol=min(len(handles), 6),
+               frameon=False, fontsize=9, bbox_to_anchor=(0.5, 0.0))
+
+
+def _supp_save(fig, path_stem):
+    path_stem.parent.mkdir(parents=True, exist_ok=True)
+    for ext in ("pdf", "png"):
+        fig.savefig(f"{path_stem}.{ext}", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved Supplementary figure: {path_stem}.pdf (and .png)")
+
+
+def supp_prediction_error_figure(scenario, pec_df, models, out_dir=CALIBRATION_SUPP_DIR):
+    """Brier score over time for every cohort of one endpoint (mean over seeds)."""
+    if pec_df is None or pec_df.empty:
+        return None
+    panels = _supp_cohorts(scenario, pec_df)
+    fig, axes = _supp_grid(len(panels))
+    for ax, (setting, d, label) in zip(axes.ravel(), panels):
+        dsub = pec_df[(pec_df.setting == setting) & (pec_df.dataset == d)]
+        ref = dsub.groupby("time")["brier_KM_reference"].mean()
+        ax.plot(ref.index, ref.values, color=INK, ls=(0, (4, 2)), lw=1.3, zorder=3)
+        for m in models:
+            msub = dsub[dsub.model == m]
+            if msub.empty:
+                continue
+            curve = msub.groupby("time")["brier"].mean()
+            ax.plot(curve.index, curve.values, **_supp_style(m, models))
+        ax.set_title(label, fontsize=11)
+        ax.set_xlabel("Time (years)", fontsize=9.5)
+        ax.set_ylabel("Brier score", fontsize=9.5)
+        ax.set_xlim(left=0)
+        ax.set_ylim(bottom=0)
+        ax.tick_params(labelsize=8.5)
+        ax.grid(color=GRID, lw=0.8)
+        ax.set_axisbelow(True)
+    for ax in axes.ravel()[len(panels):]:
+        ax.axis("off")
+    fig.suptitle(f"Prediction-error curves (Brier score over time), {scenario} endpoint",
+                 fontsize=13, fontweight="bold")
+    _supp_legend(fig, [m for m in models if m in set(pec_df.model)],
+                 extra=[Line2D([], [], color=INK, ls=(0, (4, 2)), lw=1.3,
+                               label="Kaplan–Meier (reference)")])
+    fig.tight_layout(rect=(0, 0.07, 1, 0.97))
+    stem = Path(out_dir) / f"Fig_S_prediction_error_{scenario}"
+    _supp_save(fig, stem)
+    return stem
+
+
+def supp_calibration_figure(scenario, cal_df, models, horizon, out_dir=CALIBRATION_SUPP_DIR):
+    """Calibration curves at one horizon for every cohort of one endpoint (mean over seeds).
+
+    Each point is a risk group (as defined in survival_metrics.evaluate_survival):
+    mean predicted risk of the event by ``horizon`` against the Kaplan-Meier observed
+    risk in that group, averaged over seeds. Cohorts whose follow-up does not
+    reach the horizon are shown as an empty panel with a note.
+    """
+    if cal_df is None or cal_df.empty:
+        return None
+    hsub = cal_df[np.isclose(cal_df["horizon"].astype(float), float(horizon))]
+    # Panels for every cohort evaluated for this endpoint, even if empty at this horizon.
+    panels = _supp_cohorts(scenario, cal_df)
+    if not panels:
+        return None
+    fig, axes = _supp_grid(len(panels), w=4.0, h=3.9)
+    for ax, (setting, d, label) in zip(axes.ravel(), panels):
+        dsub = hsub[(hsub.setting == setting) & (hsub.dataset == d)]
+        ax.set_title(label, fontsize=11)
+        ax.set_xlabel(f"Predicted {horizon:g}-year risk", fontsize=9.5)
+        ax.set_ylabel(f"Observed {horizon:g}-year risk (KM)", fontsize=9.5)
+        ax.tick_params(labelsize=8.5)
+        ax.grid(color=GRID, lw=0.8)
+        ax.set_axisbelow(True)
+        if dsub.empty:
+            ax.text(0.5, 0.5, f"Follow-up too short\nfor {horizon:g}-year calibration",
+                    ha="center", va="center", fontsize=9, color=INK_2, transform=ax.transAxes)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            continue
+        vals = dsub[["pred_risk", "obs_risk"]].to_numpy(dtype=float)
+        lim = float(np.nanmax(vals)) * 1.08 if np.isfinite(vals).any() else 1.0
+        lim = min(1.0, max(0.05, lim))
+        ax.plot([0, lim], [0, lim], color=INK_2, ls=":", lw=1.1, zorder=1)
+        for m in models:
+            g = (dsub[dsub.model == m].groupby("group")[["pred_risk", "obs_risk"]].mean()
+                 .sort_values("pred_risk"))
+            if g.empty:
+                continue
+            st = _supp_style(m, models)
+            ax.plot(g.pred_risk, g.obs_risk, marker="o", ms=4.5 if m == PROPOSED_METHOD else 3, **st)
+        ax.set_xlim(0, lim)
+        ax.set_ylim(0, lim)
+        ax.set_aspect("equal", adjustable="box")
+    for ax in axes.ravel()[len(panels):]:
+        ax.axis("off")
+    fig.suptitle(f"Calibration at {horizon:g} years, {scenario} endpoint", fontsize=13, fontweight="bold")
+    _supp_legend(fig, [m for m in models if m in set(cal_df.model)],
+                 extra=[Line2D([], [], color=INK_2, ls=":", lw=1.1, label="Perfect calibration")])
+    fig.tight_layout(rect=(0, 0.07, 1, 0.97))
+    stem = Path(out_dir) / f"Fig_S_calibration_{scenario}_{horizon:g}y"
+    _supp_save(fig, stem)
+    return stem
+
+
+SUPP_TABLE_METRICS = [
+    ("IBS", "IBS", 3),
+    ("IBS_KM_reference", "IBS (KM ref.)", 3),
+    (f"tdAUC_{MAIN_HORIZON:g}y", f"AUC({MAIN_HORIZON:g}y)", 3),
+    (f"calibration_slope_{MAIN_HORIZON:g}y", f"Cal. slope ({MAIN_HORIZON:g}y)", 2),
+    (f"O_E_ratio_{MAIN_HORIZON:g}y", f"O/E ({MAIN_HORIZON:g}y)", 2),
+]
+
+
+def supp_per_cohort_table(scenario, by_cohort, models, out_dir=CALIBRATION_SUPP_DIR):
+    """Per-cohort table: mean ± SD over seeds for every cohort and model."""
+    if by_cohort is None or by_cohort.empty:
+        return None
+    rows = []
+    for setting, d, label in _supp_cohorts(scenario, by_cohort):
+        for m in models:
+            r = by_cohort[(by_cohort.setting == setting) & (by_cohort.dataset == d)
+                          & (by_cohort.model == m)]
+            if r.empty:
+                continue
+            r = r.iloc[0]
+            row = {"Endpoint": scenario, "Cohort": label, "Model": m}
+            for col, lab, dg in SUPP_TABLE_METRICS:
+                mu = r.get(f"{col}_mean", np.nan)
+                sd = r.get(f"{col}_std", np.nan)
+                row[lab] = _fmt(mu, sd, dg) if pd.notna(mu) else "NA"
+            rows.append(row)
+    t = pd.DataFrame(rows)
+    if t.empty:
+        return None
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    t.to_csv(out_dir / f"Table_S_calibration_per_cohort_{scenario}.csv", index=False)
+
+    cols = [lab for _, lab, _ in SUPP_TABLE_METRICS]
+    h = f"{MAIN_HORIZON:g}"
+    lines = [
+        r"\begin{longtable}{ll" + "c" * len(cols) + "}",
+        rf"\caption{{Accuracy and calibration of predicted survival per cohort, {scenario} endpoint. "
+        r"IBS: integrated Brier score (lower is better; KM ref.: covariate-free Kaplan--Meier model). "
+        rf"AUC({h}y): time-dependent AUC; Cal.\ slope and O/E: calibration slope and "
+        rf"observed/expected ratio at {h} years (ideal 1). Mean $\pm$ SD over five seeds; "
+        rf"NA: follow-up does not extend beyond {h} years.}}",
+        rf"\label{{tab:supp_calibration_{scenario.lower()}}} \\",
+        r"\toprule",
+        "Cohort & Model & " + " & ".join(cols) + r" \\",
+        r"\midrule", r"\endfirsthead",
+        r"\toprule",
+        "Cohort & Model & " + " & ".join(cols) + r" \\",
+        r"\midrule", r"\endhead",
+    ]
+    prev = None
+    for _, r in t.iterrows():
+        if prev is not None and r.Cohort != prev:
+            lines.append(r"\midrule")
+        cohort = r.Cohort if r.Cohort != prev else ""
+        prev = r.Cohort
+        cells = [str(r[c]).replace("±", r"$\pm$") for c in cols]
+        lines.append(f"{cohort.replace('_', chr(92) + '_')} & {r.Model.replace('_', chr(92) + '_')} & "
+                     + " & ".join(cells) + r" \\")
+    lines += [r"\bottomrule", r"\end{longtable}", ""]
+    (out_dir / f"Table_S_calibration_per_cohort_{scenario}.tex").write_text("\n".join(lines), encoding="utf-8")
+    print(f"Saved Supplementary table: {out_dir / f'Table_S_calibration_per_cohort_{scenario}.csv'} (and .tex)")
+    return t
+
+
+def _supp_captions(out_dir=CALIBRATION_SUPP_DIR):
+    """LaTeX figure blocks for every Supplementary figure present in out_dir."""
+    out_dir = Path(out_dir)
+    blocks = []
+    for ep in ("RFS", "DMFS"):
+        for h in CALIBRATION_HORIZONS:
+            f = out_dir / f"Fig_S_calibration_{ep}_{h:g}y.pdf"
+            if f.exists():
+                blocks.append(
+                    r"\begin{figure*}[t]" "\n" r"\centering" "\n"
+                    rf"\includegraphics[width=\textwidth]{{{f.name}}}" "\n"
+                    rf"\caption{{Calibration of predicted {h:g}-year {ep} risk in every cohort. "
+                    rf"Each point is a risk group: mean predicted risk of an event by {h:g} years "
+                    r"against the Kaplan--Meier observed risk in that group, averaged over five seeds. "
+                    r"The dotted diagonal marks perfect calibration. TabSurv\_M is shown as a thick blue line. "
+                    r"Panels marked as having too short follow-up have no patients at risk beyond "
+                    rf"{h:g} years.}}" "\n"
+                    rf"\label{{fig:supp_calibration_{ep.lower()}_{h:g}y}}" "\n" r"\end{figure*}")
+        f = out_dir / f"Fig_S_prediction_error_{ep}.pdf"
+        if f.exists():
+            blocks.append(
+                r"\begin{figure*}[t]" "\n" r"\centering" "\n"
+                rf"\includegraphics[width=\textwidth]{{{f.name}}}" "\n"
+                rf"\caption{{Prediction-error curves for the {ep} endpoint in every cohort: Brier score "
+                r"over time (lower is better), averaged over five seeds. The dashed black line is the "
+                r"covariate-free Kaplan--Meier reference; a model curve below it indicates that the "
+                r"covariates improve prediction at that time. TabSurv\_M is shown as a thick blue line.}" "\n"
+                rf"\label{{fig:supp_prediction_error_{ep.lower()}}}" "\n" r"\end{figure*}")
+    if blocks:
+        (out_dir / "Supplementary_calibration_figures.tex").write_text("\n\n".join(blocks) + "\n",
+                                                                       encoding="utf-8")
+
+
+def make_supplementary_outputs(scenario, pec_df, cal_df, by_cohort, models,
+                               horizons=CALIBRATION_HORIZONS, out_dir=CALIBRATION_SUPP_DIR):
+    """All Supplementary per-cohort figures/tables for one endpoint.
+
+    Plotting failures are reported but never discard computed metrics.
+    """
+    jobs = [("prediction-error figure", lambda: supp_prediction_error_figure(scenario, pec_df, models, out_dir)),
+            ("per-cohort table", lambda: supp_per_cohort_table(scenario, by_cohort, models, out_dir))]
+    jobs += [(f"calibration figure {h:g}y",
+              (lambda h=h: supp_calibration_figure(scenario, cal_df, models, h, out_dir)))
+             for h in horizons]
+    for name, job in jobs:
+        try:
+            job()
+        except Exception as exc:
+            print(f"[WARN] Supplementary {name} for {scenario} not drawn: {type(exc).__name__}: {exc}")
+    _supp_captions(out_dir)
+
+
+def supplementary_from_saved(scenario, models):
+    """Re-draw Supplementary outputs from results_dir/calibration/*.csv (no re-evaluation)."""
+    cal_dir = SCENARIOS[scenario]["results_dir"] / "calibration"
+    pec_p = cal_dir / "prediction_error_curves_all.csv"
+    cal_p = cal_dir / "calibration_curves_all.csv"
+    bc_p = cal_dir / "calibration_by_cohort.csv"
+    if not pec_p.exists():
+        print(f"[WARN] {pec_p} not found; run calibration_evaluation.py without --supp-only first.")
+        return 0
+    pec_df = pd.read_csv(pec_p)
+    try:
+        cal_df = pd.read_csv(cal_p)
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        cal_df = pd.DataFrame()
+    by_cohort = pd.read_csv(bc_p) if bc_p.exists() else pd.DataFrame()
+    make_supplementary_outputs(scenario, pec_df, cal_df, by_cohort, models)
+    return 1
+
+
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--scenario", choices=["RFS", "DMFS", "both"], default="both")
@@ -456,15 +778,25 @@ def parse_args():
     p.add_argument("--models", nargs="+", default=DEFAULT_MODELS)
     p.add_argument("--skip-figure", action="store_true",
                    help="Do not draw the manuscript summary figure (Fig_calibration_summary).")
+    p.add_argument("--skip-supp", action="store_true",
+                   help="Do not draw the Supplementary per-cohort calibration / prediction-error figures.")
+    p.add_argument("--supp-only", action="store_true",
+                   help="Only re-draw the Supplementary figures/tables from the saved CSVs "
+                        "(results_dir/calibration/*.csv); no re-evaluation.")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
     settings = selected_settings(args.setting)
+    if args.supp_only:
+        written = 0
+        for sc in selected_scenarios(args.scenario):
+            written += supplementary_from_saved(sc, args.models)
+        return 0 if written else 1
     tables, by_cohorts = [], {}
     for sc in selected_scenarios(args.scenario):
-        t, bc = evaluate_scenario(sc, settings, args.models)
+        t, bc = evaluate_scenario(sc, settings, args.models, supp=not args.skip_supp)
         if t is not None:
             tables.append(t)
             by_cohorts[sc] = bc
